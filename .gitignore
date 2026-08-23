@@ -1,0 +1,22 @@
+# Environment variables (secrets — never commit)
+.env
+
+# Python virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Node (for frontend, later)
+node_modules/
+dist/
