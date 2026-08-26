@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.db.database import engine
 from app.db.base import Base
 from app.models import user  # noqa: F401  (registers the User model before create_all)
+from app.api.routes import auth
 
 app = FastAPI(title="SkillGap AI")
 
@@ -16,6 +17,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+
 
 @app.on_event("startup")
 def on_startup():
@@ -25,6 +28,7 @@ def on_startup():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
 
 
 @app.get("/")
