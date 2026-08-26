@@ -5,7 +5,7 @@ from app.core.config import settings
 from app.db.database import engine
 from app.db.base import Base
 from app.models import user  # noqa: F401  (registers the User model before create_all)
-from app.api.routes import auth
+from app.api.routes import auth, users
 
 app = FastAPI(title="SkillGap AI")
 
@@ -18,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(users.router)
 
 
 @app.on_event("startup")
