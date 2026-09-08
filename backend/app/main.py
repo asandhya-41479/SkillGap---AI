@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.database import engine
 from app.db.base import Base
-from app.models import user  # noqa: F401  (registers the User model before create_all)
+from app.models import user  # noqa: F401
+from app.models import skill  # noqa: F401  (registers UserSkill, SkillEvidence)
+from app.models import github_connection  # noqa: F401  (registers GitHubConnection)
 from app.api.routes import auth, users
 
 app = FastAPI(title="SkillGap AI")
@@ -28,8 +30,8 @@ def on_startup():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
 
+    return {"status": "ok"}
 
 
 @app.get("/")
