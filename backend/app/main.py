@@ -7,7 +7,7 @@ from app.db.base import Base
 from app.models import user  # noqa: F401
 from app.models import skill  # noqa: F401
 from app.models import github_connection  # noqa: F401
-from app.models import oauth_state  # noqa: F401
+from app.models import job  # noqa: F401  # noqa: F401
 from app.api.routes import auth, users, skills, github, profile
 
 app = FastAPI(title="SkillGap AI")
