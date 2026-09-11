@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.skill import UserSkill
-from app.schemas.skill import SkillCreate, SkillUpdate
+from app.schemas.skill import EvidenceItem, SkillCreate, SkillProfileItem, SkillUpdate
 from app.services.skill_normalization import normalize_skill_name
 
 
@@ -69,3 +69,20 @@ def delete_skill(db: Session, user_id: int, skill_id: int) -> None:
     skill = get_owned_skill(db, user_id, skill_id)
     db.delete(skill)
     db.commit()
+
+
+def get_skill_profile(db: Session, user_id: int) -> list[SkillProfileItem]:
+    skills = get_user_skills(db, user_id)
+    profile = []
+    for skill in skills:
+        sources = (["manual"] if skill.is_manual else []) + (["github"] if skill.evidence else [])
+        profile.append(SkillProfileItem(
+            skill_name=skill.skill_name,
+            category=skill.category,
+            self_assessed_level=skill.self_assessed_level,
+            demonstrated=bool(skill.evidence),
+            evidence_count=len(skill.evidence),
+            evidence=[EvidenceItem.model_validate(e) for e in skill.evidence],
+            sources=sources or ["manual"],
+        ))
+    return profile

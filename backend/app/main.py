@@ -8,7 +8,7 @@ from app.models import user  # noqa: F401
 from app.models import skill  # noqa: F401
 from app.models import github_connection  # noqa: F401
 from app.models import oauth_state  # noqa: F401
-from app.api.routes import auth, users, skills, github
+from app.api.routes import auth, users, skills, github, profile
 
 app = FastAPI(title="SkillGap AI")
 
@@ -24,12 +24,12 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(skills.router)
 app.include_router(github.router)
+app.include_router(profile.router)
 
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
-
 
 
 @app.get("/health")
