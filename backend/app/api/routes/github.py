@@ -1,3 +1,4 @@
+from fastapi import HTTPException 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -52,3 +53,16 @@ def github_status(
         github_username=connection.github_username,
         last_synced_at=connection.last_synced_at,
     )
+
+@router.get("/repositories")
+async def list_repositories(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    connection = github_service.get_connection_status(db, current_user.id)
+    if connection is None:
+        raise HTTPException(status_code=400, detail="GitHub account not connected.")
+    repos = await github_service.fetch_user_repos(connection.access_token)
+    return [{"name": r["name"], "url": r["html_url"], "language": r["language"], "topics": r.get("topics", [])} for r in repos]
+
+
+@router.post("/analyze")
+async def analyze(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return await github_service.analyze_repositories(db, current_user.id)
