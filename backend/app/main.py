@@ -6,9 +6,10 @@ from app.db.database import engine
 from app.db.base import Base
 from app.models import user  # noqa: F401
 from app.models import skill  # noqa: F401
-from app.models import github_connection  # noqa: F401
+from app.models import github_connection  # noqa: F401+
+
 from app.models import job  # noqa: F401  # noqa: F401
-from app.api.routes import auth, users, skills, github, profile
+from app.api.routes import auth, users, skills, github, profile , jobs
 
 app = FastAPI(title="SkillGap AI")
 
@@ -24,7 +25,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(skills.router)
 app.include_router(github.router)
-app.include_router(profile.router)
+app.include_router(jobs.router)
 
 
 @app.on_event("startup")
