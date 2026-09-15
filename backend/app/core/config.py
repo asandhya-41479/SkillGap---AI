@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     github_redirect_uri: str
     github_frontend_redirect: str
 
+    gemini_api_key: str
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
 
