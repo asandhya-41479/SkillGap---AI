@@ -31,6 +31,7 @@ class JobListItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+
 class JobDetail(JobListItem):
     raw_description: str
     updated_at: datetime
