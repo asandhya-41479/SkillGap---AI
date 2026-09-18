@@ -48,10 +48,10 @@ function Dashboard() {
         )}
         <div className="flex gap-3">
           <button
-            onClick={() => navigate('/skills')}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            onClick={() => navigate('/jobs')}
+            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
           >
-            View Skill Profile
+            Job Market Intelligence
           </button>
           <button
             onClick={handleLogout}

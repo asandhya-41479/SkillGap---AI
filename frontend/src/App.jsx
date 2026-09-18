@@ -3,6 +3,7 @@ import Register from './pages/Register';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import SkillProfile from './pages/SkillProfile';
+import JobIntelligence from './pages/JobIntelligence';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -24,6 +25,15 @@ function App() {
         element={
           <ProtectedRoute>
             <SkillProfile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/jobs"
+
+        element={
+          <ProtectedRoute>
+            <JobIntelligence />
           </ProtectedRoute>
         }
       />
