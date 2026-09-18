@@ -4,11 +4,20 @@ from pydantic import BaseModel, Field
 
 from app.models.job import Importance, JobStatus, RequirementCategory
 
+from pydantic import BaseModel, Field, field_validator
+
 
 class JobCreate(BaseModel):
     title: str | None = Field(default=None, max_length=200)
     target_role: str = Field(min_length=1, max_length=100)
     raw_description: str = Field(min_length=50, max_length=10000)
+
+    @field_validator("raw_description")
+    @classmethod
+    def description_must_have_real_content(cls, v: str) -> str:
+        if len(v.strip()) < 50:
+            raise ValueError("Job description must contain at least 50 non-whitespace characters.")
+        return v
 
 
 class JobRequirementResponse(BaseModel):
