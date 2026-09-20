@@ -32,7 +32,6 @@ def _is_ecosystem_pair(name_a: str, name_b: str) -> bool:
     return pair in ECOSYSTEM_TRANSFERABLE_PAIRS
 
 
-
 def _embed_text(skill_name: str, category: str) -> str:
     """Matches the exact representation validated in Step 3 testing."""
     return f"{skill_name} ({category})"
@@ -63,7 +62,6 @@ def classify_similarity(
     if same_category and similarity >= CATEGORY_FLOOR:
         return MatchClassification.partial
     if is_ecosystem_pair:
-
         return MatchClassification.transferable
     return MatchClassification.gap
 
@@ -77,8 +75,10 @@ def find_best_match(
     Layer 1: normalization (already applied to stored names, re-applied here
              defensively in case requirement_skill_name arrives un-normalized)
     Layer 2: exact canonical match
-    Layer 3: embedding similarity (only for what Layer 2 didn't resolve)
-    Layer 4: classification
+    Layer 3: classify EVERY candidate individually via embedding similarity,
+             then pick the best result by classification strength (not by
+             raw score alone — see _RANK below)
+    Layer 4: (folded into Layer 3's per-candidate classification)
     """
     if not user_skills:
         return MatchCandidate(
@@ -96,16 +96,25 @@ def find_best_match(
             return MatchCandidate(
                 matched_user_skill=skill,
                 similarity_score=1.0,
-
                 classification=MatchClassification.strong,
                 match_method=MatchMethod.exact,
             )
 
-    # Layer 3 — semantic similarity against every candidate, keep the best
+    # Layer 3 — classify EVERY candidate individually, then pick the best
+    # overall result by classification strength, not by raw score alone.
+    # Raw score is only used to break ties within the same classification —
+    # at low similarity levels, a hairline score difference is noise and
+    # must not be allowed to silently skip a known ecosystem relationship.
+    _RANK = {
+        MatchClassification.strong: 3,
+        MatchClassification.partial: 2,
+        MatchClassification.transferable: 1,
+        MatchClassification.gap: 0,
+    }
+
     try:
         requirement_text = _embed_text(normalized_requirement, requirement_category)
-        best_skill: UserSkill | None = None
-        best_score = -1.0
+        best_candidate: tuple[UserSkill, float, MatchClassification] | None = None
 
         for skill in user_skills:
             if _is_false_friend(skill.skill_name, requirement_skill_name):
@@ -113,12 +122,24 @@ def find_best_match(
 
             skill_text = _embed_text(skill.skill_name, skill.category.value)
             score = embedding_service.cosine_similarity(requirement_text, skill_text)
+            same_category = skill.category.value == requirement_category
+            classification = classify_similarity(
+                score,
+                same_category,
+                is_ecosystem_pair=_is_ecosystem_pair(skill.skill_name, requirement_skill_name),
+            )
 
-            if score > best_score:
-                best_score = score
-                best_skill = skill
+            if best_candidate is None:
+                best_candidate = (skill, score, classification)
+                continue
 
-        if best_skill is None:
+            _, best_score_so_far, best_classification_so_far = best_candidate
+            if _RANK[classification] > _RANK[best_classification_so_far]:
+                best_candidate = (skill, score, classification)
+            elif _RANK[classification] == _RANK[best_classification_so_far] and score > best_score_so_far:
+                best_candidate = (skill, score, classification)
+
+        if best_candidate is None:
             # every candidate was excluded as a false friend
             return MatchCandidate(
                 matched_user_skill=None,
@@ -127,13 +148,7 @@ def find_best_match(
                 match_method=MatchMethod.none,
             )
 
-        same_category = best_skill.category.value == requirement_category
-        classification = classify_similarity(
-
-            best_score,
-            same_category,
-            is_ecosystem_pair=_is_ecosystem_pair(best_skill.skill_name, requirement_skill_name),
-        )
+        best_skill, best_score, classification = best_candidate
 
         return MatchCandidate(
             matched_user_skill=best_skill if classification != MatchClassification.gap else None,

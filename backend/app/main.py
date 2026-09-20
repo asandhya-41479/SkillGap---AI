@@ -11,6 +11,8 @@ from app.models import github_connection  # noqa: F401+
 from app.models import job  # noqa: F401  # noqa: F401
 from app.models import skill_gap  # noqa: F401  (registers SkillGapAnalysis, SkillGapResult)
 from app.api.routes import auth, users, skills, github, profile , jobs
+from app.api.routes import skill_gap
+
 
 app = FastAPI(title="SkillGap AI")
 
@@ -27,6 +29,7 @@ app.include_router(users.router)
 app.include_router(skills.router)
 app.include_router(github.router)
 app.include_router(jobs.router)
+app.include_router(skill_gap.router)
 
 
 @app.on_event("startup")
