@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.job import Importance, RequirementCategory
 from app.models.skill_gap import (
     AnalysisStatus,
     ExplanationSource,
@@ -11,9 +12,18 @@ from app.models.skill_gap import (
 )
 
 
+class RequirementInfo(BaseModel):
+    skill_name: str
+    category: RequirementCategory
+    importance: Importance
+
+    model_config = {"from_attributes": True}
+
+
 class SkillGapResultResponse(BaseModel):
     id: int
     job_requirement_id: int
+    job_requirement: RequirementInfo | None = None
     matched_user_skill_id: int | None
     similarity_score: float | None
     classification: MatchClassification
@@ -30,7 +40,6 @@ class SkillGapAnalysisResponse(BaseModel):
     job_description_id: int
     overall_alignment_score: float | None
     status: AnalysisStatus
-
     created_at: datetime
 
     model_config = {"from_attributes": True}

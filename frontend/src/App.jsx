@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import SkillProfile from './pages/SkillProfile';
 import JobIntelligence from './pages/JobIntelligence';
 import ProtectedRoute from './components/ProtectedRoute';
+import SkillGapAnalysis from './pages/SkillGapAnalysis';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/skills"
         element={
@@ -28,12 +30,20 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/jobs"
-
         element={
           <ProtectedRoute>
             <JobIntelligence />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/skill-gap"
+        element={
+          <ProtectedRoute>
+            <SkillGapAnalysis />
           </ProtectedRoute>
         }
       />
