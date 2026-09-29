@@ -6,6 +6,9 @@ from app.db.database import engine
 from app.db.base import Base
 from app.models import user  # noqa: F401
 from app.models import skill  # noqa: F401
+from app.models import skill_gap  # noqa: F401  (registers SkillGapAnalysis, SkillGapResult)
+
+from app.models import roadmap  # noqa: F401  (registers Roadmap, RoadmapItem)
 from app.models import github_connection  # noqa: F401+
 
 from app.models import job  # noqa: F401  # noqa: F401
