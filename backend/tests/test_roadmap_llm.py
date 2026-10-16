@@ -189,7 +189,6 @@ def test_profiles_end_to_end(gaps, known, hpw, weeks, level):
     down = generate_content(plan, c, call=Fake(RuntimeError("down")))
     assert down.source == S.rules_only and set(down.items) == set(out.items)  # same coverage without Gemini
 
-
 def test_gemini_client_is_built_with_a_request_timeout(monkeypatch):
     fake_config = SimpleNamespace(settings=SimpleNamespace(gemini_api_key="test-key"))
     monkeypatch.setitem(sys.modules, "app.core.config", fake_config)
@@ -201,3 +200,23 @@ def test_gemini_client_is_built_with_a_request_timeout(monkeypatch):
         assert client._api_client._http_options.retry_options.attempts == roadmap_llm.SDK_ATTEMPTS == 3
     finally:
         roadmap_llm._client.cache_clear()
+
+        
+
+def test_next_model_is_tried_when_the_first_is_overloaded(monkeypatch):
+    used = []
+
+    def generate_content(model, contents, config):
+        used.append(model)
+        if model != roadmap_llm.MODELS[1]:
+            raise RuntimeError("503 UNAVAILABLE")
+        return SimpleNamespace(text="ok")
+
+    client = SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+    monkeypatch.setattr(roadmap_llm, "_client", lambda: client)
+    assert roadmap_llm._gemini_call("hi") == "ok" and used == list(roadmap_llm.MODELS[:2])
+    used.clear()
+    monkeypatch.setattr(roadmap_llm, "MODELS", ("a", "b"))
+    monkeypatch.setattr(client.models, "generate_content", lambda **k: (_ for _ in ()).throw(RuntimeError("503")))
+    with pytest.raises(RuntimeError):
+        roadmap_llm._gemini_call("hi")

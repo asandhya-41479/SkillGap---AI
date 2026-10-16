@@ -19,7 +19,7 @@ from app.services.roadmap.plan_types import PlannedItem, RoadmapConstraints, Rul
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gemini-3.6-flash"  # same model as the rest of the project
+MODELS = ("gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite")  # tried in order; each has its own capacity
 MAX_ATTEMPTS = 2            # first call + one retry for whatever is still missing/invalid
 TIMEOUT_MS = 30_000         # give up on a stalled Gemini call after 30 s and use the fallback
 SDK_ATTEMPTS = 3            # per call: retries 429/5xx (e.g. 503 overload) with 2 s, 4 s backoff + jitter
@@ -30,8 +30,8 @@ _BANNED = re.compile(
     re.I,
 )
 
-_INSTRUCTIONS = """You write learning content for a personalised skill-gap roadmap.
 
+_INSTRUCTIONS = """You write learning content for a personalised skill-gap roadmap.
 The skills, their order, priority, hours and weeks in INPUT_JSON are verified and FIXED. Do not add,
 remove, rename, reorder or re-prioritise them. "facts" states why each skill is on the roadmap; stay
 consistent with it and do not claim the learner knows or lacks anything beyond INPUT_JSON.
@@ -63,8 +63,8 @@ class ItemContent(BaseModel):
         return v.strip().lower()
 
     @model_validator(mode="after")
-    def _clean(self):
 
+    def _clean(self):
         if any(not 2 <= len(t.strip()) <= 80 for t in self.topics):
             raise ValueError("bad topic")
         text = " ".join([self.reason, self.project_task, self.milestone, *self.topics,
@@ -96,8 +96,8 @@ def _template(i: PlannedItem) -> ItemContent:
 def _summary(plan: RulePlan, c: RoadmapConstraints, todo: list[PlannedItem]) -> str:
     if not todo:
         return plan.feasibility_note or "No skills could be scheduled in the available time."
-    s = (f"{len(todo)} skills planned for {plan.target_role} over {c.duration_weeks} weeks "
 
+    s = (f"{len(todo)} skills planned for {plan.target_role} over {c.duration_weeks} weeks "
          f"(about {plan.scheduled_hours:g} of {plan.capacity_hours:g} available hours), starting with {todo[0].skill_name}.")
     if plan.deferred_items:
         s += f" {len(plan.deferred_items)} did not fit and are listed as deferred."
@@ -129,8 +129,8 @@ def _parse(raw: str, allowed: set[str]) -> tuple[str | None, dict[str, ItemConte
         raise ValueError("expected a JSON object")
     s = data.get("summary")
     summary = s.strip() if isinstance(s, str) and 10 <= len(s.strip()) <= 500 and not _BANNED.search(s) else None
-    out: dict[str, ItemContent] = {}
 
+    out: dict[str, ItemContent] = {}
     for entry in data["items"] if isinstance(data.get("items"), list) else []:
         try:
             item = ItemContent.model_validate(entry)
@@ -146,16 +146,22 @@ def _client():
     from google import genai
     from google.genai import types
     from app.core.config import settings
-    return genai.Client(api_key=settings.gemini_api_key, http_options=types.HttpOptions(timeout=TIMEOUT_MS, retry_options=types.HttpRetryOptions(attempts=SDK_ATTEMPTS, initial_delay=2, max_delay=10)))
-
+    return genai.Client(api_key=settings.gemini_api_key, http_options=types.HttpOptions(
+        timeout=TIMEOUT_MS, retry_options=types.HttpRetryOptions(attempts=SDK_ATTEMPTS, initial_delay=2, max_delay=10,
+        http_status_codes=[500, 502, 503, 504])))
 
 def _gemini_call(prompt: str) -> str:
+    """Try each model in MODELS; the first that answers wins. Raises the last error if all fail."""
     from google.genai import types
-    response = _client().models.generate_content(
-        model=MODEL, contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
-    )
-    return response.text
+    config = types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3)
+    for n, model in enumerate(MODELS):
+        try:
+            return _client().models.generate_content(model=model, contents=prompt, config=config).text
+        except Exception:
+            logger.warning("Gemini model %s failed", model, exc_info=True)
+            if n == len(MODELS) - 1:
+                raise
+
 
 
 def generate_content(
@@ -163,7 +169,6 @@ def generate_content(
     constraints: RoadmapConstraints,
     style: LearningStyle = LearningStyle.balanced,
     call: Callable[[str], str] | None = None,
-
 ) -> RoadmapContent:
     """Never raises because of Gemini. Deferred items get no content (they are not on the schedule)."""
     call = call or _gemini_call
@@ -190,6 +195,7 @@ def generate_content(
     else:
         source = GenerationSource.partial_fallback
     return RoadmapContent(
+
         summary=summary or _summary(plan, constraints, todo),
         items={i.skill_key: ok.get(i.skill_key) or _template(i) for i in todo},
         source=source,
