@@ -6,7 +6,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.roadmap import (
     RoadmapCreate, RoadmapDetailResponse, RoadmapItemResponse, RoadmapItemStatusUpdate,
-    RoadmapProgress, RoadmapSummaryResponse,
+    RoadmapProgress, RoadmapRegenerate, RoadmapSummaryResponse,
 )
 from app.services.roadmap import roadmap_service as svc
 
@@ -18,19 +18,25 @@ def create_roadmap(data: RoadmapCreate, user: User = Depends(get_current_user), 
     return svc.to_detail(db, svc.generate_and_store(db, user.id, data))
 
 
+@router.post("/{roadmap_id}/regenerate", response_model=RoadmapDetailResponse, status_code=status.HTTP_201_CREATED)
+def regenerate_roadmap(roadmap_id: int, data: RoadmapRegenerate, user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
+    return svc.to_detail(db, svc.regenerate(db, user.id, roadmap_id, data))
+
+
 @router.get("", response_model=list[RoadmapSummaryResponse])
 def list_roadmaps(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return [svc.to_summary(r) for r in svc.list_roadmaps(db, user.id)]
 
 
 @router.get("/{roadmap_id}", response_model=RoadmapDetailResponse)
+
 def get_roadmap(roadmap_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return svc.to_detail(db, svc.get_roadmap(db, user.id, roadmap_id))
 
 
 @router.get("/{roadmap_id}/progress", response_model=RoadmapProgress)
 def get_progress(roadmap_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-
     return svc.progress(svc.get_roadmap(db, user.id, roadmap_id))
 
 
