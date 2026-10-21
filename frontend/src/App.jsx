@@ -6,6 +6,7 @@ import SkillProfile from './pages/SkillProfile';
 import JobIntelligence from './pages/JobIntelligence';
 import ProtectedRoute from './components/ProtectedRoute';
 import SkillGapAnalysis from './pages/SkillGapAnalysis';
+import Roadmap from './pages/Roadmap';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
             <SkillProfile />
           </ProtectedRoute>
         }
+
       />
 
       <Route
@@ -44,6 +46,14 @@ function App() {
         element={
           <ProtectedRoute>
             <SkillGapAnalysis />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/roadmap"
+        element={
+          <ProtectedRoute>
+            <Roadmap />
           </ProtectedRoute>
         }
       />

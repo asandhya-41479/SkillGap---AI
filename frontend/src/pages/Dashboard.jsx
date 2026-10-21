@@ -46,7 +46,7 @@ function Dashboard() {
             </p>
           </>
         )}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => navigate('/jobs')}
             className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
@@ -54,16 +54,22 @@ function Dashboard() {
             Job Market Intelligence
           </button>
           <button
+            onClick={() => navigate('/roadmap')}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          >
+            Skill Gap Roadmap
+          </button>
+          <button
             onClick={handleLogout}
             className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
           >
+
             Logout
           </button>
         </div>
       </div>
     </div>
   );
-
 }
 
 export default Dashboard;
