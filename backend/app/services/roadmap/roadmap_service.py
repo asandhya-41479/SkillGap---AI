@@ -1,20 +1,20 @@
 """Module 5 Steps 5-8: build and store a roadmap from verified gaps; read it, track progress, delete it,
-and regenerate it (keeping finished work) when the plan needs to change."""
+regenerate it (keeping finished work), and re-ask Gemini for better wording when it was unavailable."""
 from dataclasses import replace
 from datetime import datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.roadmap import ItemStatus, Roadmap, RoadmapItem, RoadmapLifecycle
+from app.models.roadmap import GenerationSource, ItemStatus, Roadmap, RoadmapItem, RoadmapLifecycle
 from app.schemas.roadmap import (
     RoadmapCreate, RoadmapDetailResponse, RoadmapProgress, RoadmapRegenerate, RoadmapSummaryResponse,
 )
 from app.services.roadmap.dependency_graph import skill_key
 from app.services.roadmap.gap_reader import load_plan_input
-from app.services.roadmap.plan_types import PlanInput, PlannedItem, RoadmapConstraints
+from app.services.roadmap.plan_types import PlanInput, PlannedItem, RoadmapConstraints, RulePlan
 from app.services.roadmap.planner import plan_roadmap
-from app.services.roadmap.roadmap_llm import ItemContent, generate_content
+from app.services.roadmap.roadmap_llm import ItemContent, _template, generate_content
 
 
 # ---------------------------------------------------------------- create (Step 5) and regenerate (Step 8)
@@ -28,9 +28,14 @@ _KEPT_COLUMNS = (  # copied unchanged when finished work is carried into a new v
 )
 
 
+def _apply(row: RoadmapItem, text: ItemContent) -> None:
+    """Only the wording fields; schedule, hours, priority and progress are never touched."""
+    row.reason, row.topics, row.project_task, row.milestone = text.reason, text.topics, text.project_task, text.milestone
+    row.practical_tasks = [t.model_dump() for t in text.practical_tasks]
+
+
 def _item(i: PlannedItem, text: ItemContent | None, offset: int = 0, doing: bool = False) -> RoadmapItem:
     """Skeleton fields always come from the rule plan; Gemini/template text only fills the wording."""
-
     row = RoadmapItem(
         job_requirement_id=i.job_requirement_id, skill_name=i.skill_name,
         gap_classification=i.gap_classification, importance=i.importance, priority=i.priority,
@@ -41,8 +46,7 @@ def _item(i: PlannedItem, text: ItemContent | None, offset: int = 0, doing: bool
         status=ItemStatus.in_progress if doing and i.is_scheduled else ItemStatus.not_started,
     )
     if text:  # scheduled items only; deferred items keep just the plan's reason plus why they were deferred
-        row.reason, row.topics, row.project_task, row.milestone = text.reason, text.topics, text.project_task, text.milestone
-        row.practical_tasks = [t.model_dump() for t in text.practical_tasks]
+        _apply(row, text)
     else:
         row.reason = f"{i.reason} {i.deferred_reason or ''}".strip()
     return row
@@ -63,7 +67,6 @@ def _create(db: Session, user_id: int, analysis_id: int, hours: int, weeks: int,
     adapt = old is not None and mode == "adapt"
     kept = [i for i in old.items if i.status in _FINISHED] if adapt else []
     done = {skill_key(i.skill_name) for i in kept}
-
     # Finished (or skipped) skills are not planned again, and count as known so their dependants stay valid.
     planning = replace(plan_input, gaps=[g for g in plan_input.gaps if skill_key(g.skill_name) not in done],
                        known_skills=plan_input.known_skills + [i.skill_name for i in kept])
@@ -96,7 +99,6 @@ def _create(db: Session, user_id: int, analysis_id: int, hours: int, weeks: int,
 
 def generate_and_store(db: Session, user_id: int, data: RoadmapCreate, call=None) -> Roadmap:
     """Raises 404/400 (HTTPException) for a missing, foreign or failed analysis. Gemini problems never raise."""
-
     return _create(db, user_id, data.analysis_id, data.hours_per_week, data.duration_weeks,
                    data.experience_level, data.learning_style, call)
 
@@ -114,6 +116,47 @@ def regenerate(db: Session, user_id: int, roadmap_id: int, data: RoadmapRegenera
                    call, old, data.mode)
 
 
+def _planned(i: RoadmapItem) -> PlannedItem:
+    """Rebuild the saved plan entry, so Gemini is asked about exactly what is already stored."""
+    return PlannedItem(
+        skill_key=skill_key(i.skill_name), skill_name=i.skill_name, job_requirement_id=i.job_requirement_id,
+        gap_classification=i.gap_classification, importance=i.importance, priority=i.priority,
+        effort_size=i.effort_size, estimated_hours=i.estimated_hours, is_scheduled=True, start_week=i.start_week,
+        end_week=i.end_week, order_index=i.order_index, prerequisites=i.prerequisites or [],
+        is_supplementary=i.is_supplementary, reduced_scope=i.reduced_scope, reason=i.reason or "",
+    )
+
+
+def improve(db: Session, user_id: int, roadmap_id: int, call=None) -> Roadmap:
+    """Ask Gemini again for the wording of the open tasks (after an outage). Nothing but wording can change."""
+    r = get_roadmap(db, user_id, roadmap_id)
+    _require_active(r)
+    if r.generation_source == GenerationSource.gemini:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This roadmap already uses AI-written wording.")
+    rows = {skill_key(i.skill_name): i for i in r.items if i.is_scheduled and i.status not in _FINISHED}
+    if not rows:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "There are no open tasks left to improve.")
+    planned = {k: _planned(i) for k, i in rows.items()}
+    plan = RulePlan(target_role=r.target_role, capacity_hours=r.capacity_hours, scheduled_hours=r.total_estimated_hours,
+                    items=list(planned.values()), already_known=(r.input_snapshot or {}).get("known_skills", []),
+                    feasibility_note=r.feasibility_note, has_gaps=True)
+    content = generate_content(plan, RoadmapConstraints(r.hours_per_week, r.duration_weeks, r.experience_level),
+                               r.learning_style, call)
+    better = {k: c for k, c in content.items.items() if c != _template(planned[k])}  # template text is not an improvement
+    if not better:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "The AI service is not available right now, so nothing was changed. Please try again later.")
+    for k, c in better.items():
+        _apply(rows[k], c)
+    if len(better) == len(rows):
+        r.generation_source, r.summary = GenerationSource.gemini, content.summary
+    else:
+        r.generation_source = GenerationSource.partial_fallback
+    db.commit()
+    db.refresh(r)
+    return r
+
+
 # ---------------------------------------------------------------- read / update / delete (Step 6)
 
 def get_roadmap(db: Session, user_id: int, roadmap_id: int) -> Roadmap:
@@ -127,7 +170,6 @@ def get_roadmap(db: Session, user_id: int, roadmap_id: int) -> Roadmap:
 def _require_active(r: Roadmap) -> None:
     if r.lifecycle != RoadmapLifecycle.active:
         raise HTTPException(status.HTTP_409_CONFLICT, "This roadmap was replaced by a newer version and is kept for history only.")
-
 
 
 def list_roadmaps(db: Session, user_id: int) -> list[Roadmap]:
@@ -162,7 +204,6 @@ def _source_changed(db: Session, r: Roadmap) -> bool:
 def to_summary(r: Roadmap) -> RoadmapSummaryResponse:
     out = RoadmapSummaryResponse.model_validate(r)
     out.progress = progress(r)
-
     return out
 
 

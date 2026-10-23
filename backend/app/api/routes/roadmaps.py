@@ -24,13 +24,17 @@ def regenerate_roadmap(roadmap_id: int, data: RoadmapRegenerate, user: User = De
     return svc.to_detail(db, svc.regenerate(db, user.id, roadmap_id, data))
 
 
+@router.post("/{roadmap_id}/improve", response_model=RoadmapDetailResponse)
+def improve_roadmap(roadmap_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return svc.to_detail(db, svc.improve(db, user.id, roadmap_id))
+
+
 @router.get("", response_model=list[RoadmapSummaryResponse])
 def list_roadmaps(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return [svc.to_summary(r) for r in svc.list_roadmaps(db, user.id)]
 
 
 @router.get("/{roadmap_id}", response_model=RoadmapDetailResponse)
-
 def get_roadmap(roadmap_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return svc.to_detail(db, svc.get_roadmap(db, user.id, roadmap_id))
 

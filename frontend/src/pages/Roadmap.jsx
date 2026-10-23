@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { listAnalyses } from '../api/skillGap';
-import { createRoadmap, regenerateRoadmap, listRoadmaps, getRoadmap, setItemStatus, deleteRoadmap } from '../api/roadmaps';
+import { createRoadmap, regenerateRoadmap, improveRoadmap, listRoadmaps, getRoadmap, setItemStatus, deleteRoadmap } from '../api/roadmaps';
 import RoadmapItemCard from '../components/roadmap/RoadmapItemCard';
 
 const errorText = (err, fallback) =>
@@ -17,6 +17,7 @@ export default function Roadmap() {
   const [creating, setCreating] = useState(false);
   const [upd, setUpd] = useState({ mode: 'adapt', hours: '', weeks: '' });
   const [updating, setUpdating] = useState(false);
+  const [improving, setImproving] = useState(false);
   const [busyItem, setBusyItem] = useState(null);
   const [error, setError] = useState('');
 
@@ -62,8 +63,8 @@ export default function Roadmap() {
     setUpdating(true);
     setError('');
     try {
-      const body = { mode: upd.mode };
 
+      const body = { mode: upd.mode };
       if (upd.hours) body.hours_per_week = Number(upd.hours);
       if (upd.weeks) body.duration_weeks = Number(upd.weeks);
       const { data } = await regenerateRoadmap(roadmap.id, body);
@@ -76,11 +77,26 @@ export default function Roadmap() {
     }
   };
 
+  const handleImprove = async () => {
+    setImproving(true);
+    setError('');
+    try {
+      const { data } = await improveRoadmap(roadmap.id);
+      setRoadmap(data);
+      setRoadmaps(roadmaps.map((r) => (r.id === data.id ? { ...r, generation_source: data.generation_source } : r)));
+    } catch (err) {
+      setError(errorText(err, 'Could not improve the wording. Please try again later.'));
+    } finally {
+      setImproving(false);
+    }
+  };
+
   const handleStatus = async (item, status) => {
     setBusyItem(item.id);
     setError('');
     try {
       await setItemStatus(roadmap.id, item.id, status);
+
       setRoadmap((await getRoadmap(roadmap.id)).data);
     } catch (err) {
       setError(errorText(err, 'Could not update that task.'));
@@ -96,7 +112,6 @@ export default function Roadmap() {
       const rest = roadmaps.filter((r) => r.id !== roadmap.id);
       setRoadmaps(rest);
       setRoadmap(null);
-
       if (rest.length) open(rest[0].id);
     } catch {
       setError('Could not delete the roadmap.');
@@ -114,6 +129,7 @@ export default function Roadmap() {
       <Link to="/dashboard" className="text-sm text-purple-700 hover:underline">← Dashboard</Link>
       <h1 className="text-2xl font-bold my-3">Skill Gap Roadmap</h1>
 
+
       <div className="bg-white border rounded-lg p-4 mb-6">
         {analyses.length === 0 ? (
           <p className="text-sm text-gray-600">
@@ -129,7 +145,6 @@ export default function Roadmap() {
                     Analysis #{a.id} · job #{a.job_description_id} · alignment {a.overall_alignment_score ?? '—'}%
                   </option>
                 ))}
-
               </select>
             </label>
             <label>Hours per week (1–40)
@@ -147,6 +162,7 @@ export default function Roadmap() {
             </label>
             <label>Learning style
               <select value={form.learning_style} onChange={set('learning_style')} className={field}>
+
                 <option value="balanced">Balanced</option>
                 <option value="hands_on">Hands-on first</option>
                 <option value="theory_first">Theory first</option>
@@ -162,7 +178,6 @@ export default function Roadmap() {
           </div>
         )}
         {creating && (
-
           <p className="mt-3 text-sm text-gray-600 animate-pulse">
             Planning your schedule and writing the study plan. This can take up to a minute when the AI service is busy — please keep this page open.
           </p>
@@ -180,6 +195,7 @@ export default function Roadmap() {
                   <option key={r.id} value={r.id}>
                     {r.title} · #{r.id} · {new Date(r.created_at).toLocaleDateString()}{r.lifecycle === 'superseded' ? ' (older version)' : ''}
                   </option>
+
                 ))}
               </select>
             ) : <h2 className="text-xl font-semibold">{roadmap.title}</h2>}
@@ -195,11 +211,24 @@ export default function Roadmap() {
           )}
           {roadmap.generation_source !== 'gemini' && scheduled.some((i) => i.start_week) && (
             <p className="mb-2 text-sm text-gray-500">
-
               Standard study-plan wording was used because the AI service was unavailable. The schedule is not affected.
             </p>
           )}
+          {!older && roadmap.generation_source !== 'gemini' && scheduled.some((i) => i.start_week && i.status !== 'completed' && i.status !== 'skipped') && (
+            <div className="mb-3">
+              <button type="button" onClick={handleImprove} disabled={improving}
+                className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded disabled:opacity-50">
+                {improving ? 'Asking the AI service…' : 'Improve with AI'}
+              </button>
+              {improving && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Only the wording of your open tasks is rewritten. This can take up to a minute — please keep this page open.
+                </p>
+              )}
+            </div>
+          )}
           {older && (
+
             <p className="mb-2 text-sm text-gray-600">
               This is an older version, kept for history. Open the newest version in the list above to keep working.
             </p>
@@ -228,11 +257,11 @@ export default function Roadmap() {
             <div className="bg-white border rounded-lg p-4 mb-4 text-sm">
               <strong>Update this plan</strong>
               <p className="text-gray-500">
-
                 Rebuilds the plan from your latest gap analysis. The current version is kept as history.
               </p>
               <div className="grid grid-cols-3 gap-3 mt-2">
                 <label>What to keep
+
                   <select value={upd.mode} onChange={(e) => setUpd({ ...upd, mode: e.target.value })} className={field}>
                     <option value="adapt">Keep my progress</option>
                     <option value="fresh">Start over</option>
@@ -261,11 +290,11 @@ export default function Roadmap() {
 
           {scheduled.map((item) => (
             <RoadmapItemCard key={item.id} item={item} onStatus={handleStatus} busy={busyItem === item.id} readOnly={older} />
-
           ))}
 
           {deferred.length > 0 && (
             <>
+
               <h3 className="mt-6 mb-2 font-semibold">Did not fit your time budget</h3>
               {deferred.map((item) => (
                 <RoadmapItemCard key={item.id} item={item} onStatus={handleStatus} busy={false} readOnly={older} />

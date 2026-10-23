@@ -30,7 +30,6 @@ _BANNED = re.compile(
     re.I,
 )
 
-
 _INSTRUCTIONS = """You write learning content for a personalised skill-gap roadmap.
 The skills, their order, priority, hours and weeks in INPUT_JSON are verified and FIXED. Do not add,
 remove, rename, reorder or re-prioritise them. "facts" states why each skill is on the roadmap; stay
@@ -44,6 +43,8 @@ for the target role, "topics": 3-6 short topics, "practical_tasks": 1-3 objects
 
 Rules: if reduced_scope is true cover core topics only; match learning_style and learner_level;
 no URLs, no named courses, books, websites or products; no promises about jobs or timelines.
+Size the work to approx_hours: the practical tasks and the project task for one skill together must be doable
+within approx_hours, so prefer small, specific exercises over building a whole application or system. Check spelling.
 Practice project (suggestions only, nothing is changed automatically): SkillGap AI, a FastAPI +
 PostgreSQL + SQLAlchemy backend with JWT auth, a React + Vite + Tailwind frontend, and Gemini/embedding analysis.
 """
@@ -63,7 +64,6 @@ class ItemContent(BaseModel):
         return v.strip().lower()
 
     @model_validator(mode="after")
-
     def _clean(self):
         if any(not 2 <= len(t.strip()) <= 80 for t in self.topics):
             raise ValueError("bad topic")
@@ -96,7 +96,6 @@ def _template(i: PlannedItem) -> ItemContent:
 def _summary(plan: RulePlan, c: RoadmapConstraints, todo: list[PlannedItem]) -> str:
     if not todo:
         return plan.feasibility_note or "No skills could be scheduled in the available time."
-
     s = (f"{len(todo)} skills planned for {plan.target_role} over {c.duration_weeks} weeks "
          f"(about {plan.scheduled_hours:g} of {plan.capacity_hours:g} available hours), starting with {todo[0].skill_name}.")
     if plan.deferred_items:
@@ -129,7 +128,6 @@ def _parse(raw: str, allowed: set[str]) -> tuple[str | None, dict[str, ItemConte
         raise ValueError("expected a JSON object")
     s = data.get("summary")
     summary = s.strip() if isinstance(s, str) and 10 <= len(s.strip()) <= 500 and not _BANNED.search(s) else None
-
     out: dict[str, ItemContent] = {}
     for entry in data["items"] if isinstance(data.get("items"), list) else []:
         try:
@@ -150,6 +148,7 @@ def _client():
         timeout=TIMEOUT_MS, retry_options=types.HttpRetryOptions(attempts=SDK_ATTEMPTS, initial_delay=2, max_delay=10,
         http_status_codes=[500, 502, 503, 504])))
 
+
 def _gemini_call(prompt: str) -> str:
     """Try each model in MODELS; the first that answers wins. Raises the last error if all fail."""
     from google.genai import types
@@ -161,7 +160,6 @@ def _gemini_call(prompt: str) -> str:
             logger.warning("Gemini model %s failed", model, exc_info=True)
             if n == len(MODELS) - 1:
                 raise
-
 
 
 def generate_content(
@@ -195,7 +193,6 @@ def generate_content(
     else:
         source = GenerationSource.partial_fallback
     return RoadmapContent(
-
         summary=summary or _summary(plan, constraints, todo),
         items={i.skill_key: ok.get(i.skill_key) or _template(i) for i in todo},
         source=source,
