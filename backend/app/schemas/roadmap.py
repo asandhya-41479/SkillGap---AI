@@ -30,6 +30,7 @@ class RoadmapItemStatusUpdate(BaseModel):
 
 
 class RoadmapRegenerate(BaseModel):
+
     """Step 8. 'adapt' keeps completed/skipped progress; 'fresh' rebuilds from scratch."""
     mode: Literal["adapt", "fresh"] = "adapt"
     hours_per_week: int | None = Field(default=None, ge=1, le=40)
@@ -62,6 +63,7 @@ class RoadmapItemResponse(BaseModel):
     end_week: int | None
     order_index: int
     prerequisites: list[str]
+
     is_supplementary: bool
     reduced_scope: bool
 
@@ -73,6 +75,8 @@ class RoadmapItemResponse(BaseModel):
 
     status: ItemStatus
     completed_at: datetime | None
+    notes: str | None = None          # Module 6
+    practical_done: bool = False      # Module 6
 
     model_config = {"from_attributes": True}
 
@@ -92,6 +96,7 @@ class RoadmapProgress(BaseModel):
     total_items: int          # scheduled items, excluding skipped
     completed_items: int
     in_progress_items: int
+
     remaining_items: int
     skipped_items: int
     deferred_items: int       # did not fit the time budget

@@ -2,6 +2,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,  # Module 6
     Column,
     DateTime,
     Enum,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    false,  # Module 6
 )
 from sqlalchemy.orm import relationship
 
@@ -26,6 +28,7 @@ class MatchClassification(str, enum.Enum):
     partial = "partial"
     transferable = "transferable"
     gap = "gap"
+
 
 
 class MatchMethod(str, enum.Enum):
@@ -61,6 +64,7 @@ class SkillGapAnalysis(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
     user = relationship("User")
     job = relationship("JobDescription")
 
@@ -90,6 +94,10 @@ class SkillGapResult(Base):
 
     explanation = Column(Text, nullable=True)
     explanation_source = Column(Enum(ExplanationSource), nullable=True)
+    # Module 6: True when a gap/transferable result was raised to partial because the user attached
+    # qualifying evidence. Kept visible so an evidence-based result is never mistaken for a pure match.
+
+    evidence_adjusted = Column(Boolean, nullable=False, default=False, server_default=false())
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 

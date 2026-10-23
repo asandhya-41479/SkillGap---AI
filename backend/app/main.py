@@ -9,6 +9,7 @@ from app.models import skill  # noqa: F401
 from app.models import skill_gap  # noqa: F401  (registers SkillGapAnalysis, SkillGapResult)
 
 from app.models import roadmap  # noqa: F401  (registers Roadmap, RoadmapItem)
+from app.models import readiness  # noqa: F401  (registers ProgressEvidence, ReadinessSnapshot)  # Module 6
 from app.models import github_connection  # noqa: F401+
 
 from app.models import job  # noqa: F401  # noqa: F401
@@ -29,6 +30,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+
 app.include_router(users.router)
 app.include_router(skills.router)
 app.include_router(github.router)

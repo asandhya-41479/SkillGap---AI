@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,  # Module 6
 )
 from sqlalchemy.orm import relationship
 
@@ -29,6 +30,7 @@ class RoadmapLifecycle(str, enum.Enum):
 
 
 class GenerationSource(str, enum.Enum):
+
     gemini = "gemini"                        # all item content came from validated Gemini output
 
     partial_fallback = "partial_fallback"    # some items were repaired with deterministic templates
@@ -60,6 +62,7 @@ class Roadmap(Base):
         CheckConstraint("hours_per_week BETWEEN 1 AND 40", name="ck_roadmap_hours_per_week"),
         CheckConstraint("duration_weeks BETWEEN 1 AND 26", name="ck_roadmap_duration_weeks"),
     )
+
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -93,6 +96,7 @@ class Roadmap(Base):
     generation_source = Column(
         Enum(GenerationSource), nullable=False, default=GenerationSource.rules_only
     )
+
     lifecycle = Column(Enum(RoadmapLifecycle), nullable=False, default=RoadmapLifecycle.active)
 
     # Verified gaps the roadmap was built from (used for traceability and staleness detection).
@@ -125,6 +129,7 @@ class RoadmapItem(Base):
     # that are not part of the verified requirement set.
     job_requirement_id = Column(
         Integer, ForeignKey("job_requirements.id", ondelete="SET NULL"), nullable=True, index=True
+
     )
 
     skill_name = Column(String(100), nullable=False)  # canonical name, same form as Module 3/4
@@ -156,6 +161,9 @@ class RoadmapItem(Base):
     # User progress (self-reported).
     status = Column(Enum(ItemStatus), nullable=False, default=ItemStatus.not_started)
     completed_at = Column(DateTime, nullable=True)
+    notes = Column(String(500), nullable=True)                                                # Module 6
+
+    practical_done = Column(Boolean, nullable=False, default=False, server_default=false())  # Module 6
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
