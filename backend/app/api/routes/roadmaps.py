@@ -45,9 +45,10 @@ def get_progress(roadmap_id: int, user: User = Depends(get_current_user), db: Se
 
 
 @router.patch("/{roadmap_id}/items/{item_id}", response_model=RoadmapItemResponse)
+@router.patch("/{roadmap_id}/items/{item_id}/progress", response_model=RoadmapItemResponse)  # Module 6 path
 def set_item_status(roadmap_id: int, item_id: int, data: RoadmapItemStatusUpdate,
                     user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return svc.update_item_status(db, user.id, roadmap_id, item_id, data.status)
+    return svc.update_item_progress(db, user.id, roadmap_id, item_id, data)
 
 
 @router.delete("/{roadmap_id}", status_code=status.HTTP_204_NO_CONTENT)

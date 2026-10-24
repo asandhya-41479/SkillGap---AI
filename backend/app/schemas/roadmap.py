@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.job import Importance
 from app.models.roadmap import (
@@ -26,11 +26,20 @@ class RoadmapCreate(BaseModel):
 
 
 class RoadmapItemStatusUpdate(BaseModel):
-    status: ItemStatus
+    """Send any of the three fields. notes: "" or null clears them."""
+    status: ItemStatus | None = None
+    notes: str | None = Field(default=None, max_length=500)  # Module 6
+    practical_done: bool | None = None                      # Module 6
+
+
+    @model_validator(mode="after")
+    def _something_to_change(self):
+        if self.status is None and self.practical_done is None and "notes" not in self.model_fields_set:
+            raise ValueError("Send at least one of: status, notes, practical_done")
+        return self
 
 
 class RoadmapRegenerate(BaseModel):
-
     """Step 8. 'adapt' keeps completed/skipped progress; 'fresh' rebuilds from scratch."""
     mode: Literal["adapt", "fresh"] = "adapt"
     hours_per_week: int | None = Field(default=None, ge=1, le=40)
@@ -54,6 +63,7 @@ class RoadmapItemResponse(BaseModel):
 
     gap_classification: MatchClassification | None
     importance: Importance | None
+
     priority: PriorityLevel
 
     effort_size: EffortSize
@@ -63,7 +73,6 @@ class RoadmapItemResponse(BaseModel):
     end_week: int | None
     order_index: int
     prerequisites: list[str]
-
     is_supplementary: bool
     reduced_scope: bool
 
@@ -75,8 +84,9 @@ class RoadmapItemResponse(BaseModel):
 
     status: ItemStatus
     completed_at: datetime | None
-    notes: str | None = None          # Module 6
-    practical_done: bool = False      # Module 6
+    notes: str | None = None            # Module 6
+    practical_done: bool = False        # Module 6
+    updated_at: datetime | None = None  # Module 6: last updated
 
     model_config = {"from_attributes": True}
 
@@ -86,6 +96,7 @@ class RoadmapItemResponse(BaseModel):
         return [] if v is None else v
 
     @field_validator("practical_tasks", mode="before")
+
     @classmethod
     def _none_to_empty_tasks(cls, v):
         return [] if v is None else v
@@ -96,7 +107,6 @@ class RoadmapProgress(BaseModel):
     total_items: int          # scheduled items, excluding skipped
     completed_items: int
     in_progress_items: int
-
     remaining_items: int
     skipped_items: int
     deferred_items: int       # did not fit the time budget
@@ -119,6 +129,7 @@ class RoadmapSummaryResponse(BaseModel):
     capacity_hours: float
     created_at: datetime
     progress: RoadmapProgress | None = None  # filled by the service on read
+
 
     model_config = {"from_attributes": True}
 

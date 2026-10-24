@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.models.roadmap import GenerationSource, ItemStatus, Roadmap, RoadmapItem, RoadmapLifecycle
 from app.schemas.roadmap import (
-    RoadmapCreate, RoadmapDetailResponse, RoadmapProgress, RoadmapRegenerate, RoadmapSummaryResponse,
+    RoadmapCreate, RoadmapDetailResponse, RoadmapItemStatusUpdate, RoadmapProgress, RoadmapRegenerate,
+    RoadmapSummaryResponse,
 )
 from app.services.roadmap.dependency_graph import skill_key
 from app.services.roadmap.gap_reader import load_plan_input
@@ -24,11 +25,12 @@ _FINISHED = (ItemStatus.completed, ItemStatus.skipped)
 _KEPT_COLUMNS = (  # copied unchanged when finished work is carried into a new version
     "job_requirement_id", "skill_name", "gap_classification", "importance", "priority", "effort_size",
     "estimated_hours", "is_scheduled", "prerequisites", "is_supplementary", "reduced_scope", "reason", "topics",
-    "practical_tasks", "project_task", "milestone", "status", "completed_at",
+    "practical_tasks", "project_task", "milestone", "status", "completed_at", "notes", "practical_done",
 )
 
 
 def _apply(row: RoadmapItem, text: ItemContent) -> None:
+
     """Only the wording fields; schedule, hours, priority and progress are never touched."""
     row.reason, row.topics, row.project_task, row.milestone = text.reason, text.topics, text.project_task, text.milestone
     row.practical_tasks = [t.model_dump() for t in text.practical_tasks]
@@ -61,6 +63,7 @@ def _snapshot(p: PlanInput) -> dict:
     }
 
 
+
 def _create(db: Session, user_id: int, analysis_id: int, hours: int, weeks: int, level, style, call,
             old: Roadmap | None = None, mode: str = "fresh") -> Roadmap:
     plan_input = load_plan_input(db, user_id, analysis_id)
@@ -73,8 +76,12 @@ def _create(db: Session, user_id: int, analysis_id: int, hours: int, weeks: int,
     constraints = RoadmapConstraints(hours, weeks, level)
     plan = plan_roadmap(planning, constraints)
     content = generate_content(plan, constraints, style, call)
-    doing = {i.skill_name for i in old.items if i.status == ItemStatus.in_progress} if adapt else set()
+    doing = {i.skill_name: i for i in old.items if i.status == ItemStatus.in_progress} if adapt else {}
     carried = [RoadmapItem(**{c: getattr(i, c) for c in _KEPT_COLUMNS}, order_index=n) for n, i in enumerate(kept)]
+    planned = [_item(i, content.items.get(i.skill_key), len(kept), i.skill_name in doing) for i in plan.items]
+    for row in planned:  # in-progress work keeps the user's notes and practical-task flag
+        if row.status == ItemStatus.in_progress and row.skill_name in doing:
+            row.notes, row.practical_done = doing[row.skill_name].notes, doing[row.skill_name].practical_done
 
     roadmap = Roadmap(
         user_id=user_id, analysis_id=analysis_id, parent_roadmap_id=old.id if old else None,
@@ -83,12 +90,13 @@ def _create(db: Session, user_id: int, analysis_id: int, hours: int, weeks: int,
         feasibility_note=NOTE_ALL_DONE if kept and not plan.items else plan.feasibility_note,
         total_estimated_hours=plan.scheduled_hours, capacity_hours=plan.capacity_hours,
         generation_source=content.source, input_snapshot=_snapshot(plan_input),
-        items=carried + [_item(i, content.items.get(i.skill_key), len(kept), i.skill_name in doing) for i in plan.items],
+        items=carried + planned,
     )
     if old:
         old.lifecycle = RoadmapLifecycle.superseded  # saved in the same commit as the new version
     try:
         db.add(roadmap)
+
         db.commit()
     except Exception:
         db.rollback()
@@ -121,6 +129,7 @@ def _planned(i: RoadmapItem) -> PlannedItem:
     return PlannedItem(
         skill_key=skill_key(i.skill_name), skill_name=i.skill_name, job_requirement_id=i.job_requirement_id,
         gap_classification=i.gap_classification, importance=i.importance, priority=i.priority,
+
         effort_size=i.effort_size, estimated_hours=i.estimated_hours, is_scheduled=True, start_week=i.start_week,
         end_week=i.end_week, order_index=i.order_index, prerequisites=i.prerequisites or [],
         is_supplementary=i.is_supplementary, reduced_scope=i.reduced_scope, reason=i.reason or "",
@@ -153,6 +162,7 @@ def improve(db: Session, user_id: int, roadmap_id: int, call=None) -> Roadmap:
     else:
         r.generation_source = GenerationSource.partial_fallback
     db.commit()
+
     db.refresh(r)
     return r
 
@@ -185,6 +195,7 @@ def progress(r: Roadmap) -> RoadmapProgress:
     return RoadmapProgress(
         total_items=total, completed_items=done, in_progress_items=doing, remaining_items=total - done - doing,
         skipped_items=skipped, deferred_items=len(r.items) - len(scheduled),
+
         percent_complete=round(done / total * 100, 1) if total else 0.0,
     )
 
@@ -213,21 +224,34 @@ def to_detail(db: Session, r: Roadmap) -> RoadmapDetailResponse:
     return out
 
 
-def update_item_status(db: Session, user_id: int, roadmap_id: int, item_id: int, new: ItemStatus) -> RoadmapItem:
+def update_item_progress(db: Session, user_id: int, roadmap_id: int, item_id: int,
+                         data: RoadmapItemStatusUpdate) -> RoadmapItem:
+    """Self-reported progress: status, notes and practical-task flag. Never touches skill proficiency."""
     roadmap = get_roadmap(db, user_id, roadmap_id)
+
     _require_active(roadmap)
     item = next((i for i in roadmap.items if i.id == item_id), None)
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Roadmap item not found")
     if not item.is_scheduled:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "This skill did not fit the time budget, so it has no schedule to track yet.")
-    item.status = new
+
+    new = data.status or item.status
+    practical = item.practical_done if data.practical_done is None else data.practical_done
+    if new in (ItemStatus.not_started, ItemStatus.skipped):
+        if data.practical_done:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Mark the practical task done only while the item is in progress or completed.")
+        practical = False  # restarting or skipping an item clears it
+
+    item.status, item.practical_done = new, practical
     item.completed_at = (item.completed_at or datetime.utcnow()) if new == ItemStatus.completed else None
+    if "notes" in data.model_fields_set:
+        item.notes = (data.notes or "").strip() or None
     db.commit()
     db.refresh(item)
     return item
 
 
 def delete_roadmap(db: Session, user_id: int, roadmap_id: int) -> None:
-    db.delete(get_roadmap(db, user_id, roadmap_id))  # items go with it; Module 4 data is untouched
+    db.delete(get_roadmap(db, user_id, roadmap_id))  # items go with it; Module 5 data is untouched
     db.commit()
