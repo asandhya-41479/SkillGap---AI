@@ -14,3 +14,12 @@ LEARNING_STRENGTH = 0.25   # a completed roadmap item without any attached evide
 
 MAX_EVIDENCE_PER_SKILL = 5
 MAX_EVIDENCE_PER_USER = 100
+
+# ---------- Career Readiness formula (Step 5) ----------
+FORMULA_VERSION = "1.0"
+# score = 100 * sum(weight * component) / sum(weights of the components that exist). Components are in [0, 1].
+COMPONENT_WEIGHTS = {"alignment": 0.30, "required_coverage": 0.25, "evidence": 0.20, "gap_health": 0.15, "roadmap": 0.10}
+MIN_REQUIREMENTS = 3          # fewer analysed requirements than this -> "Not enough data"
+NOT_ENOUGH_DATA = "Not enough data"
+LABELS = [(30, "Getting started"), (50, "Building foundations"), (70, "Making progress"),
+          (85, "Strong progress"), (101, "Highly aligned")]   # upper bound (exclusive) -> label

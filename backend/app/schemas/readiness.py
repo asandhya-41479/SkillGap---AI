@@ -94,9 +94,22 @@ class ReadinessSnapshotResponse(BaseModel):
     created_at: datetime
 
 
+class SkillBreakdown(BaseModel):
+    """Why a requirement counts the way it does (computed live, not stored)."""
+
+    skill_name: str
+    importance: str
+    classification: str
+    priority: str
+    weight: float
+    credit: float
+    evidence_strength: float             # 0 = nothing demonstrated; 1 = verified GitHub work
+
+
 class ReadinessResponse(ReadinessSnapshotResponse):
     is_stale: bool = False               # inputs changed since this snapshot was computed
-
+    weights: dict[str, float] = {}       # effective weight of each component after re-normalising
+    breakdown: list[SkillBreakdown] = []
 
 
 # ---------- History & comparison ----------
@@ -116,6 +129,7 @@ class ReadinessHistory(BaseModel):
     has_enough_history: bool             # needs >= 2 points; otherwise the UI shows "Not enough historical data."
 
 
+
 class SkillChange(BaseModel):
     skill_name: str
     before: str                          # MatchClassification value
@@ -129,7 +143,6 @@ class ReadinessComparison(BaseModel):
     alignment_before: float | None
     alignment_after: float | None
     alignment_delta_points: float | None
-
     strong_before: int
     strong_after: int
     high_priority_before: int

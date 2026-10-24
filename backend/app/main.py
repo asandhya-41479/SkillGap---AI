@@ -18,6 +18,7 @@ from app.api.routes import auth, users, skills, github, profile , jobs
 from app.api.routes import skill_gap
 from app.api.routes import roadmaps
 from app.api.routes import evidence
+from app.api.routes import readiness as readiness_routes
 
 
 app = FastAPI(title="SkillGap AI")
@@ -37,8 +38,9 @@ app.include_router(skills.router)
 app.include_router(github.router)
 app.include_router(jobs.router)
 app.include_router(skill_gap.router)
-app.include_router(roadmaps.router)    
+app.include_router(roadmaps.router)
 app.include_router(evidence.router)
+app.include_router(readiness_routes.router)
 
 
 @app.on_event("startup")
