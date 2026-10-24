@@ -37,6 +37,7 @@ class EvidenceResponse(BaseModel):
     roadmap_item_id: int | None
     created_at: datetime
     strength: float | None = None  # filled by the service from kind + status; not stored
+    verification_detail: str | None = None  # plain-language reason for the status; not stored
 
     model_config = {"from_attributes": True}
 
@@ -62,8 +63,8 @@ class ReadinessMetrics(BaseModel):
     required_total: int = 0
     required_covered: int = 0            # required skills classified strong
     high_priority_open: int = 0          # Module 4 priority == high
-    roadmap_pct: float | None = None
 
+    roadmap_pct: float | None = None
 
 
 class NextAction(BaseModel):
@@ -128,8 +129,8 @@ class ReadinessComparison(BaseModel):
     alignment_before: float | None
     alignment_after: float | None
     alignment_delta_points: float | None
-    strong_before: int
 
+    strong_before: int
     strong_after: int
     high_priority_before: int
     high_priority_after: int
