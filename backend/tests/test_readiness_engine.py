@@ -164,3 +164,69 @@ def test_login_required(rd):
     rd.app.dependency_overrides.pop(get_current_user)
 
     assert rd.get().status_code in (401, 403) and rd.calc().status_code in (401, 403)
+
+
+def test_next_action_selection_and_ai_feedback(rd, monkeypatch):
+    from app.services import readiness_service
+    monkeypatch.setattr(readiness_service, "_gemini_feedback_call", lambda p: "You are making steady progress.")
+    # Without roadmap: should suggest adding evidence for high-priority gap (Docker or FastAPI)
+    snap = rd.calc().json()
+    assert snap["next_action"] is not None
+    assert snap["next_action"]["kind"] in ("add_evidence", "roadmap_item")
+    assert snap["ai_feedback"] is not None
+
+    # With roadmap: should suggest starting the first scheduled item or in-progress item
+    rm = create(rd.api)
+    snap2 = rd.calc().json()
+    assert snap2["next_action"]["kind"] == "roadmap_item"
+    assert "Start learning" in snap2["next_action"]["title"] or "Complete" in snap2["next_action"]["title"]
+
+    # Mark an item in_progress: next action must prioritize it!
+    docker = next(i for i in rm["items"] if i["skill_name"] == "Docker")
+    rd.api.client.patch(f"/roadmaps/{rm['id']}/items/{docker['id']}", json={"status": "in_progress"})
+    snap3 = rd.calc().json()
+    assert snap3["next_action"]["kind"] == "roadmap_item"
+    assert snap3["next_action"]["skill_name"] == "Docker"
+    assert "in_progress" in snap3["next_action"]["reason_codes"]
+
+
+def test_history_and_comparison_endpoints(rd):
+    # Check history endpoint with 1 point
+    rd.calc()
+    h1 = rd.c.get(f"/readiness/jobs/1/history")
+    assert h1.status_code == 200
+    d1 = h1.json()
+    assert len(d1["points"]) >= 1
+    assert d1["has_enough_history"] is False  # 1 point < 2
+
+    # Create a second analysis for the same job to test comparison
+    with rd.api.Session() as s:
+        from app.models.job import JobDescription, JobRequirement
+        j = s.query(JobDescription).first()
+        a2 = SkillGapAnalysis(user_id=rd.api.uid, job_description_id=j.id, overall_alignment_score=65.0)
+        s.add(a2)
+        s.flush()
+        reqs = s.query(JobRequirement).filter(JobRequirement.job_description_id == j.id).all()
+        for req in reqs:
+            s.add(SkillGapResult(analysis_id=a2.id, job_requirement_id=req.id,
+                                 classification=C.strong if req.skill_name in ("Python", "Docker") else C.partial,
+                                 priority=P.none if req.skill_name in ("Python", "Docker") else P.medium))
+        s.commit()
+        a2_id = a2.id
+
+    # Test compare endpoint
+    comp_res = rd.c.get(f"/readiness/compare?from_analysis_id={rd.api.aid}&to_analysis_id={a2_id}")
+    assert comp_res.status_code == 200
+    comp = comp_res.json()
+    assert comp["from_analysis_id"] == rd.api.aid
+    assert comp["to_analysis_id"] == a2_id
+    assert comp["alignment_before"] == 40.0
+    assert comp["alignment_after"] == 65.0
+    assert comp["alignment_delta_points"] == 25.0
+    assert comp["strong_before"] == 1
+    assert comp["strong_after"] == 2
+    assert len(comp["skill_changes"]) > 0
+
+    # Cross-user check on compare
+    rd.api.as_user(rd.api.other)
+    assert rd.c.get(f"/readiness/compare?from_analysis_id={rd.api.aid}&to_analysis_id={a2_id}").status_code == 404
