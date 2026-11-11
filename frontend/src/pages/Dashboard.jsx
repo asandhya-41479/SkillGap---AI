@@ -48,6 +48,12 @@ function Dashboard() {
         )}
         <div className="flex flex-wrap gap-3">
           <button
+            onClick={() => navigate('/skills')}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Skill Profile
+          </button>
+          <button
             onClick={() => navigate('/jobs')}
             className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
           >
@@ -58,6 +64,18 @@ function Dashboard() {
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
           >
             Skill Gap Roadmap
+          </button>
+          <button
+            onClick={() => navigate('/skill-gap')}
+            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+          >
+            Skill Gap Analysis
+          </button>
+          <button
+            onClick={() => navigate('/readiness')}
+            className="bg-purple-800 text-white px-4 py-2 rounded hover:bg-purple-900"
+          >
+            Career Readiness
           </button>
           <button
             onClick={handleLogout}
