@@ -75,7 +75,7 @@ def test_project_url_is_linked_not_verified(ev):
     r = ev.post(**project(note=" my demo "))
     assert r.status_code == 201
     d = r.json()
-    assert d["verification_status"] == "linked" and d["strength"] == 0.6 and d["note"] == "my demo"
+    assert d["verification_status"] == "linked" and d["strength"] == 0.4 and d["note"] == "my demo"   # project link: never opened, so below a real repo
     assert ev.gh.calls == []                                  # a project link is never fetched
 
 

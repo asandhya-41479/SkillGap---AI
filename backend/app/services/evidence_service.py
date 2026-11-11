@@ -17,6 +17,7 @@ from app.core import readiness_config as cfg
 from app.models.github_connection import GitHubConnection
 from app.models.readiness import EvidenceKind, ProgressEvidence, VerificationStatus as V
 from app.models.roadmap import ItemStatus, Roadmap, RoadmapItem
+from app.models.skill import SkillEvidence, UserSkill
 from app.schemas.readiness import EvidenceCreate
 from app.services import github_evidence as ge
 from app.services.skill_normalization import normalize_skill_name
@@ -177,15 +178,29 @@ def reverify(db: Session, user_id: int, evidence_id: int) -> tuple[ProgressEvide
 
 
 def evidence_strengths(db: Session, user_id: int) -> dict[str, float]:
-    """{lower-case canonical skill: 0-1}. Best evidence row wins; a completed roadmap item gives learning
-    strength only. Used by the readiness engine (Step 5). Never touches UserSkill."""
+    """{lower-case canonical skill: 0-1}. The best evidence wins. Three sources:
+    1. completed roadmap item  -> learning strength only (progress, not proficiency)
+    2. Module 2 auto-detected GitHub evidence (SkillEvidence) -> supporting strength by how it was detected
+    3. Module 6 attached evidence (ProgressEvidence) -> strength by kind + verification status
+    Used by the readiness engine. Read-only: never edits UserSkill or any level."""
     out: dict[str, float] = {}
+
+    def bump(name: str, value: float) -> None:
+        k = ge.skill_key(name)
+        out[k] = max(out.get(k, 0.0), value)
+
     done = (db.query(RoadmapItem.skill_name).join(Roadmap, Roadmap.id == RoadmapItem.roadmap_id)
             .filter(Roadmap.user_id == user_id, RoadmapItem.status == ItemStatus.completed).all())
     for (name,) in done:
-        k = ge.skill_key(name)
-        out[k] = max(out.get(k, 0.0), cfg.LEARNING_STRENGTH)
+        bump(name, cfg.LEARNING_STRENGTH)
+
+    detected = (db.query(UserSkill.skill_name, SkillEvidence.detected_via)
+                .join(SkillEvidence, SkillEvidence.user_skill_id == UserSkill.id)
+                .filter(UserSkill.user_id == user_id).all())
+    for name, via in detected:
+        via_key = via.value if hasattr(via, "value") else str(via)
+        bump(name, cfg.MODULE2_EVIDENCE_STRENGTH.get(via_key, 0.0))
+
     for ev in list_evidence(db, user_id):
-        k = ge.skill_key(ev.skill_name)
-        out[k] = max(out.get(k, 0.0), strength(ev.kind, ev.verification_status))
+        bump(ev.skill_name, strength(ev.kind, ev.verification_status))
     return out

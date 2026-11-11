@@ -108,6 +108,7 @@ class SkillBreakdown(BaseModel):
 
 class ReadinessResponse(ReadinessSnapshotResponse):
     is_stale: bool = False               # inputs changed since this snapshot was computed
+    source_available: bool = True        # False when the source analysis was deleted (score kept for history)
     weights: dict[str, float] = {}       # effective weight of each component after re-normalising
     breakdown: list[SkillBreakdown] = []
 
@@ -148,3 +149,4 @@ class ReadinessComparison(BaseModel):
     high_priority_before: int
     high_priority_after: int
     skill_changes: list[SkillChange]
+
