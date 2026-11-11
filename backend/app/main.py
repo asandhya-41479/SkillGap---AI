@@ -35,6 +35,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(skills.router)
+app.include_router(profile.router)
 app.include_router(github.router)
 app.include_router(jobs.router)
 app.include_router(skill_gap.router)
