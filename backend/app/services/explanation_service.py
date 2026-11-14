@@ -3,6 +3,7 @@ import logging
 from google import genai
 
 from app.core.config import settings
+from app.services.gemini_fallback import generate_with_fallback
 from app.models.skill_gap import ExplanationSource, MatchClassification
 from app.services.skill_gap_engine import GapEngineResult
 
@@ -68,7 +69,7 @@ def generate_explanation(result: GapEngineResult) -> tuple[str, ExplanationSourc
     )
 
     try:
-        response = _client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
+        response = generate_with_fallback(_client, prompt)   # 3-model chain, same as Modules 5-6
         text = response.text.strip()
         if not text:
             raise ValueError("Gemini returned empty text")

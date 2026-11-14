@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import SkillGapAnalysis from './pages/SkillGapAnalysis';
 import Roadmap from './pages/Roadmap';
 import CareerReadiness from './pages/CareerReadiness';
+import CareerIntelligence from './pages/CareerIntelligence';
 
 function App() {
   return (
@@ -63,6 +64,14 @@ function App() {
         element={
           <ProtectedRoute>
             <CareerReadiness />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/career"
+        element={
+          <ProtectedRoute>
+            <CareerIntelligence />
           </ProtectedRoute>
         }
       />

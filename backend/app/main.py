@@ -13,12 +13,14 @@ from app.models import readiness  # noqa: F401  (registers ProgressEvidence, Rea
 from app.models import github_connection  # noqa: F401+
 
 from app.models import job  # noqa: F401  # noqa: F401
+from app.models import career  # noqa: F401  (Module 7 tables)
 from app.models import skill_gap  # noqa: F401  (registers SkillGapAnalysis, SkillGapResult)
 from app.api.routes import auth, users, skills, github, profile , jobs
 from app.api.routes import skill_gap
 from app.api.routes import roadmaps
 from app.api.routes import evidence
 from app.api.routes import readiness as readiness_routes
+from app.api.routes import career as career_routes
 
 
 app = FastAPI(title="SkillGap AI")
@@ -42,6 +44,7 @@ app.include_router(skill_gap.router)
 app.include_router(roadmaps.router)
 app.include_router(evidence.router)
 app.include_router(readiness_routes.router)
+app.include_router(career_routes.router)
 
 
 @app.on_event("startup")

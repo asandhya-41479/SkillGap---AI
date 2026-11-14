@@ -19,4 +19,28 @@ Thumbs.db
 
 # Node (for frontend, later)
 node_modules/
+dist/*.env
+backend/.env
+frontend/.env
+.pytest_cache/
+*.zip
+backend/scripts/set_demo_login.py
+backend/scripts/reset_password.py
+backend/scripts/list_accounts.py
+.agent/
+.planning/
+frontend/dist/
 dist/
+module_files.txt
+frontend_files.txt
+backend/module_files.txt
+backend/alembic/
+.env
+*.env
+.venv/
+node_modules/
+__pycache__/
+*.zip
+backend/scripts/set_demo_login.py
+backend/scripts/reset_password.py
+backend/scripts/list_accounts.py

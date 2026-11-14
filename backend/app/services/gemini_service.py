@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from google import genai
 
 from app.core.config import settings
+from app.services.gemini_fallback import generate_with_fallback
 from app.services.prompts import JOB_EXTRACTION_PROMPT
 
 _client = genai.Client(api_key=settings.gemini_api_key)
@@ -13,7 +14,7 @@ def extract_requirements(job_description: str) -> list[dict]:
     prompt = JOB_EXTRACTION_PROMPT.format(job_description=job_description)
 
     try:
-        response = _client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
+        response = generate_with_fallback(_client, prompt)   # 3-model chain, same as Modules 5-6
         raw_text = response.text.strip()
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Gemini API call failed: {e}")
