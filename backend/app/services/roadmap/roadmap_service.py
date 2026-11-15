@@ -94,6 +94,13 @@ def _create(db: Session, user_id: int, analysis_id: int, hours: int, weeks: int,
     )
     if old:
         old.lifecycle = RoadmapLifecycle.superseded  # saved in the same commit as the new version
+    else:
+        # A fresh roadmap replaces any roadmap still active for the same analysis, exactly like regenerate.
+        # Otherwise two "active" roadmaps exist and progress on the older one is silently not counted by
+        # Modules 6/7 (they read the newest active roadmap).
+        for prev in (db.query(Roadmap).filter(Roadmap.user_id == user_id, Roadmap.analysis_id == analysis_id,
+                                              Roadmap.lifecycle == RoadmapLifecycle.active).all()):
+            prev.lifecycle = RoadmapLifecycle.superseded    # same commit as the new roadmap
     try:
         db.add(roadmap)
 

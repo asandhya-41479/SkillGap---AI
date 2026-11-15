@@ -137,10 +137,10 @@ def test_progress_counts_only_scheduled_items_and_excludes_skipped(api):
 
 
 def test_item_must_belong_to_that_roadmap(api):
-    one, two = create(api), create(api)
-    other_items_url = f"/roadmaps/{one['id']}/items/{two['items'][0]['id']}"
+    one, two = create(api), create(api)          # creating "two" supersedes "one", so test against the active one
+    other_items_url = f"/roadmaps/{two['id']}/items/{one['items'][0]['id']}"
     assert api.client.patch(other_items_url, json={"status": "completed"}).status_code == 404
-    assert api.client.patch(f"/roadmaps/{one['id']}/items/9999", json={"status": "completed"}).status_code == 404
+    assert api.client.patch(f"/roadmaps/{two['id']}/items/9999", json={"status": "completed"}).status_code == 404
 
 
 def test_delete_removes_roadmap_and_items_but_not_module4_data(api):

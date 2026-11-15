@@ -29,6 +29,10 @@ _BANNED = re.compile(
     r"coursera|udemy|udacity|edx|pluralsight|youtube|freecodecamp|w3schools|geeksforgeeks",
     re.I,
 )
+# English plain text only: printable ASCII plus typographic quotes, dashes and ellipsis. Gemini occasionally
+# leaks words from another language (e.g. "摘要", Chinese for "summary"); such text is rejected like any other
+# invalid output, so the summary falls back to the deterministic one and items are retried / templated.
+_NON_ENGLISH = re.compile(r"[^\t\n\r\x20-\x7E\u2018\u2019\u201C\u201D\u2013\u2014\u2026]")
 
 _INSTRUCTIONS = """You write learning content for a personalised skill-gap roadmap.
 The skills, their order, priority, hours and weeks in INPUT_JSON are verified and FIXED. Do not add,
@@ -121,19 +125,27 @@ def _prompt(plan: RulePlan, c: RoadmapConstraints, style: LearningStyle, items: 
     return f"{_INSTRUCTIONS}\nINPUT_JSON:\n{json.dumps(payload, indent=1)}"
 
 
+def _item_text(item: ItemContent) -> str:
+    return " ".join([item.reason, item.project_task, item.milestone, *item.topics,
+                     *(f"{t.title} {t.description}" for t in item.practical_tasks)])
+
+
 def _parse(raw: str, allowed: set[str]) -> tuple[str | None, dict[str, ItemContent]]:
     """Valid items only. Unknown skills and duplicates are dropped; bad items are skipped."""
     data = json.loads(re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.M).strip())
     if not isinstance(data, dict):
         raise ValueError("expected a JSON object")
     s = data.get("summary")
-    summary = s.strip() if isinstance(s, str) and 10 <= len(s.strip()) <= 500 and not _BANNED.search(s) else None
+    summary = (s.strip() if isinstance(s, str) and 10 <= len(s.strip()) <= 500
+               and not _BANNED.search(s) and not _NON_ENGLISH.search(s) else None)
     out: dict[str, ItemContent] = {}
     for entry in data["items"] if isinstance(data.get("items"), list) else []:
         try:
             item = ItemContent.model_validate(entry)
         except ValidationError:
             continue
+        if _NON_ENGLISH.search(_item_text(item)):
+            continue                     # Gemini text only: the deterministic template is never filtered
         if item.skill_key in allowed:
             out.setdefault(item.skill_key, item)
     return summary, out
