@@ -697,3 +697,130 @@ def test_completing_without_link_creates_no_evidence(client, db):
     body = client.patch(f"/career/actions/{act['id']}", json={"status": "COMPLETED"}).json()
     assert body["evidence_results"] == [] and body["plan_stale"] is False and body["loop_message"] is None
     assert db.query(ProgressEvidence).count() == 0
+
+
+# ------------------------------------------------------------------ Step 10: failure and access-control matrix
+from sqlalchemy.exc import OperationalError  # noqa: E402
+
+M7_ENDPOINTS = [
+    ("GET", "/career/1/plan"), ("POST", "/career/1/plan/generate"), ("GET", "/career/actions"),
+    ("PATCH", "/career/actions/1"), ("GET", "/career/1/interview-prep"), ("POST", "/career/1/interview-prep/generate"),
+    ("PATCH", "/career/interview-prep/1"), ("GET", "/career/opportunities/source-status"),
+    ("GET", "/career/opportunities/saved-jobs"), ("POST", "/career/opportunities/match"),
+    ("GET", "/career/opportunities"), ("DELETE", "/career/opportunities/1"),
+]
+
+
+@pytest.mark.parametrize("method,url", M7_ENDPOINTS)
+def test_every_module7_endpoint_requires_login(db, method, url):
+    app.dependency_overrides[get_db] = lambda: db               # real auth dependency, no token sent
+    try:
+        r = TestClient(app).request(method, url, json={"status": "COMPLETED"} if method in ("PATCH", "POST") else None)
+        assert r.status_code in (401, 403), (method, url, r.status_code)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_database_failure_saves_nothing_and_leaks_no_details(db, monkeypatch):
+    u = make_user(db); _, analysis, _ = make_world(db, u)
+    real_commit = db.commit
+
+    def broken_commit():
+        raise OperationalError("INSERT INTO career_plans ...", {}, Exception("database is unavailable"))
+    monkeypatch.setattr(db, "commit", broken_commit)
+    with pytest.raises(OperationalError):
+        svc.generate_plan(db, u.id, analysis.id)
+    db.rollback()
+    monkeypatch.setattr(db, "commit", real_commit)
+    assert db.query(CareerPlan).count() == 0 and db.query(CareerAction).count() == 0   # nothing half-saved
+
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: u
+    monkeypatch.setattr(db, "commit", broken_commit)
+    try:
+        r = TestClient(app, raise_server_exceptions=False).get(f"/career/{analysis.id}/plan")
+        assert r.status_code == 500
+        assert "INSERT" not in r.text and "OperationalError" not in r.text            # no SQL or stack trace leaked
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_github_outage_during_closed_loop_keeps_work_and_allows_later_verification(client, db, monkeypatch):
+    u = make_user(db); _, analysis, _ = make_world(db, u); connect_github(db, u); client.state["user"] = u
+
+    def down(*a):
+        raise github_evidence.GitHubUnavailable("GitHub API timeout")
+    monkeypatch.setattr(github_evidence, "check_repo", down)
+    act = next(a for a in client.get(f"/career/{analysis.id}/plan").json()["actions"] if a["action_key"] == "python:PROVE")
+    body = client.patch(f"/career/actions/{act['id']}", json={"status": "COMPLETED", "evidence_url": REPO}).json()
+    assert body["status"] == "COMPLETED"                                               # the user's work is kept
+    assert body["evidence_results"][0]["status"] == "unavailable"                      # Module 6: re-verify later
+    assert "could not be checked right now" in body["loop_message"]
+
+
+def test_gemini_failure_everywhere_still_gives_a_complete_module7(client, db):
+    # autouse fixture: every Gemini call fails. Plan, interview prep and matching must all still work.
+    u = make_user(db); _, analysis, _ = make_world(db, u); client.state["user"] = u
+    plan = client.get(f"/career/{analysis.id}/plan").json()
+    assert plan["gemini_used"] is False and plan["top_actions"] and all(a["reason"] for a in plan["actions"])
+    prep = client.get(f"/career/{analysis.id}/interview-prep").json()
+    assert prep["items"] and all(q["source"] in ("template", "curated") for i in prep["items"] for q in i["questions"])
+    assert client.get("/career/opportunities/saved-jobs").json()[0]["coverage_pct"] == 27.8
+
+
+# ------------------------------------------------------------------ Step 10: database and external-API failures
+from sqlalchemy.exc import IntegrityError, OperationalError  # noqa: E402
+
+
+def test_concurrent_generation_conflict_returns_the_stored_plan(db, monkeypatch):
+    u = make_user(db); _, analysis, _ = make_world(db, u)
+    first, _ = svc.generate_plan(db, u.id, analysis.id)
+
+    def clash(*a, **k):
+        raise IntegrityError("INSERT", {}, Exception("duplicate active action key"))
+    monkeypatch.setattr(svc, "_persist", clash)
+    again, generated = svc.generate_plan(db, u.id, analysis.id, force=True)
+    assert generated is False and again.id == first.id                  # rolled back, nothing half-written
+    assert db.query(CareerPlan).count() == 1
+
+
+def test_conflict_with_no_stored_plan_is_a_clear_409(db, monkeypatch):
+    u = make_user(db); _, analysis, _ = make_world(db, u)
+    monkeypatch.setattr(svc, "_persist", lambda *a, **k: (_ for _ in ()).throw(
+        IntegrityError("INSERT", {}, Exception("dup"))))
+    with pytest.raises(Exception) as e:
+        svc.generate_plan(db, u.id, analysis.id)
+    assert getattr(e.value, "status_code", None) == 409
+    assert db.query(CareerPlan).count() == 0 and db.query(CareerAction).count() == 0
+
+
+def test_database_outage_returns_500_without_leaking_details(db, monkeypatch):
+    from app.services.career import career_inputs
+    u = make_user(db); _, analysis, _ = make_world(db, u)
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: u
+
+    def down(*a, **k):
+        raise OperationalError("SELECT ...", {}, Exception("could not connect to server: password=secret"))
+    monkeypatch.setattr(career_inputs, "build", down)
+    try:
+        r = TestClient(app, raise_server_exceptions=False).get(f"/career/{analysis.id}/plan")
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == 500
+    assert "secret" not in r.text and "SELECT" not in r.text and "OperationalError" not in r.text
+
+
+def test_github_outage_during_closed_loop_saves_unavailable_evidence(db, monkeypatch):
+    u = make_user(db); _, analysis, _ = make_world(db, u); connect_github(db, u)
+    svc.generate_plan(db, u.id, analysis.id)
+
+    def outage(*a, **k):
+        raise github_evidence.GitHubUnavailable("GitHub API timeout")
+    monkeypatch.setattr(github_evidence, "check_repo", outage)
+    a = actions(db, u)["python:PROVE"]
+    act, results = svc.update_action_with_loop(db, u.id, a.id, ActionUpdateRequest(status="COMPLETED", evidence_url=REPO))
+    assert act.status == ActionStatus.COMPLETED and results[0]["status"] == "unavailable"
+    assert "could not be checked" in svc.loop_message(results)            # honest message, can be re-verified
+    ev = db.get(ProgressEvidence, act.evidence_id)
+    assert ev.verification_status == VerificationStatus.unavailable
