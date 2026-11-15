@@ -18,7 +18,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import career_config as cfg
+from pydantic import ValidationError
+
 from app.models.career import ActionStatus, CareerAction, CareerPlan
+from app.models.job import JobRequirement
+from app.models.readiness import EvidenceKind, ProgressEvidence
+from app.schemas.readiness import EvidenceCreate
+from app.services import evidence_service
+from app.services import github_evidence as ge
 from app.models.skill_gap import SkillGapAnalysis
 from app.schemas.career import ActionUpdateRequest, CareerActionOut, CareerInputs
 from app.services.career import career_explainer, career_inputs
@@ -186,28 +193,109 @@ def list_actions(db: Session, user_id: int, job_id: int | None = None, status: s
     return q.order_by(CareerAction.job_description_id, CareerAction.rank, CareerAction.id).all()
 
 
+# ---------------------------------------------------------------- Step 9: closed loop
+
+def _evidence_skills(db: Session, act: CareerAction) -> list[str]:
+    """Skills a completed action can prove: its own skill, or every skill a project action covers."""
+    keys = [k for code in (act.reason_codes or []) if code.startswith("COVERS:")
+            for k in code.split(":", 1)[1].split(",") if k]
+    if not keys:
+        return [act.skill_name]
+    names = {ge.skill_key(n): n for (n,) in db.query(JobRequirement.skill_name)
+             .filter(JobRequirement.job_description_id == act.job_description_id).all()}
+    out = [act.skill_name] + [names[k] for k in keys if k in names]
+    return list(dict.fromkeys(out))                         # main skill first, no duplicates
+
+
+def _existing_evidence(db: Session, user_id: int, skill: str, kind: EvidenceKind, url: str):
+    """The evidence row Module 6 already has for this skill + link (used when it answers 409 'already added')."""
+    if kind == EvidenceKind.github_repo:
+        owner, repo = ge.parse_repo_url(url)
+        url = f"https://github.com/{owner}/{repo}"
+    else:
+        url = evidence_service._clean_project_url(url)
+    return (db.query(ProgressEvidence)
+            .filter(ProgressEvidence.user_id == user_id, ProgressEvidence.url == url).all())
+
+
+def _attach_evidence(db: Session, user_id: int, act: CareerAction, url: str, note: str | None):
+    """Create Module 6 evidence through Module 6's own add_evidence (same validation and GitHub verification
+    as the Career Readiness page). The action's main skill must succeed, otherwise the error is raised and
+    the action is NOT marked completed. Returns (results, first evidence id)."""
+    kind = EvidenceKind.github_repo if ge.parse_repo_url(url) else EvidenceKind.project_url
+    results, first_id = [], None
+    for i, skill in enumerate(_evidence_skills(db, act)):
+        try:
+            data = EvidenceCreate(skill_name=skill, kind=kind, url=url, note=note)
+            ev, detail = evidence_service.add_evidence(db, user_id, data)
+        except ValidationError:
+            raise HTTPException(400, "Enter a full https:// link to what you produced.")
+        except HTTPException as e:
+            if e.status_code == 409:                        # already added: link to the existing evidence
+                ev = next((x for x in _existing_evidence(db, user_id, skill, kind, url)
+                           if ge.skill_key(x.skill_name) == ge.skill_key(skill)), None)
+                detail = "This link was already added for this skill."
+                if ev is None:
+                    raise
+            elif i == 0:
+                raise                                       # main skill rejected: nothing is completed
+            else:
+                results.append(dict(skill_name=skill, status="rejected", strength=None, detail=e.detail))
+                continue
+        status = ev.verification_status
+        results.append(dict(evidence_id=ev.id, skill_name=ev.skill_name, kind=ev.kind.value,
+                            status=status.value, strength=evidence_service.strength(ev.kind, status), detail=detail))
+        first_id = first_id or ev.id
+    return results, first_id
+
+
+_STATUS_WORD = {"verified": "verified", "linked": "linked (not verified)", "unverified": "added but not verified",
+                "unavailable": "saved; GitHub could not be checked right now, verify it later", "rejected": "not added"}
+
+
+def loop_message(results: list[dict]) -> str | None:
+    if not results:
+        return None
+    parts = [f"{r['skill_name']}: {_STATUS_WORD.get(r['status'], r['status'])}" for r in results]
+    return ("Evidence sent to Career Readiness (" + "; ".join(parts) + "). "
+            "Your readiness and career plan are recalculated from it.")
+
+
 def update_action(db: Session, user_id: int, action_id: int, data: ActionUpdateRequest) -> CareerAction:
-    """Only status and evidence fields change. Completing an action never marks a skill as mastered:
-    evidence is passed to Module 6, which recalculates readiness (closed loop, Step 9)."""
+    return update_action_with_loop(db, user_id, action_id, data)[0]
+
+
+def update_action_with_loop(db: Session, user_id: int, action_id: int,
+                            data: ActionUpdateRequest) -> tuple[CareerAction, list]:
+    """Only status and evidence fields change. Completing an action never marks a skill as mastered: a link
+    becomes Module 6 evidence, Module 6 recalculates readiness, and the plan is rebuilt from it (closed loop).
+    Moving an action back from completed keeps the evidence (it is real work; delete it on Career Readiness)."""
     act = _owned_action(db, user_id, action_id)
     if not act.is_active:
         raise HTTPException(409, "This action was replaced by a newer plan. Refresh your career plan.")
 
+    new_status = ActionStatus(data.status.value) if data.status is not None else act.status
+    url = data.evidence_url
+    results = []
+    if (new_status == ActionStatus.COMPLETED and url and act.skill_name
+            and (url != act.evidence_url or act.evidence_id is None)):
+        results, ev_id = _attach_evidence(db, user_id, act, url, data.evidence_note)   # may raise: no change
+        act.evidence_id = ev_id or act.evidence_id
+
     now = datetime.utcnow()
     if data.status is not None:
-        new = ActionStatus(data.status.value)
-        if new == ActionStatus.IN_PROGRESS and act.started_at is None:
+        if new_status == ActionStatus.IN_PROGRESS and act.started_at is None:
             act.started_at = now
-        if new == ActionStatus.COMPLETED:
+        if new_status == ActionStatus.COMPLETED:
             act.completed_at = now
             act.started_at = act.started_at or now
         elif act.completed_at is not None:
-            act.completed_at = None        # moved back from completed
-        act.status = new
-    if data.evidence_url is not None:
-        act.evidence_url = data.evidence_url
+            act.completed_at = None        # moved back from completed (evidence is kept)
+        act.status = new_status
+    if url is not None:
+        act.evidence_url = url
     if data.evidence_note is not None:
         act.evidence_note = data.evidence_note
     db.commit()
     db.refresh(act)
-    return act
+    return act, results

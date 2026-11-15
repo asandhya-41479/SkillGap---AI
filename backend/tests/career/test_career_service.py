@@ -164,8 +164,8 @@ def test_completing_action_never_edits_skills_or_gaps(db):
     before = [(r.id, r.classification) for r in db.query(SkillGapResult).all()]
     a = actions(db, u)["docker:LEARN"]
     done = svc.update_action(db, u.id, a.id, ActionUpdateRequest(
-        status="COMPLETED", evidence_url="https://github.com/u/skillgap-ai", evidence_note="Dockerfile added"))
-    assert done.completed_at is not None and done.evidence_url.endswith("skillgap-ai")
+        status="COMPLETED", evidence_url="https://skillgap-demo.example.com", evidence_note="Dockerfile added"))
+    assert done.completed_at is not None and done.evidence_url == "https://skillgap-demo.example.com"
     assert [(r.id, r.classification) for r in db.query(SkillGapResult).all()] == before
     assert db.query(UserSkill).count() == 1
     back = svc.update_action(db, u.id, a.id, ActionUpdateRequest(status="IN_PROGRESS"))
@@ -588,3 +588,112 @@ def test_api_saved_job_by_id_and_source_status(client, db):
     assert r["source"] == "SAVED_JOB" and r["coverage_pct"] == 27.8 and r["id"] is None
     st = client.get("/career/opportunities/source-status").json()
     assert st["job_api_configured"] is False and "connected job-data source" in st["message"]
+
+
+# ------------------------------------------------------------------ Step 9: closed loop (Module 7 -> Module 6 -> Module 7)
+from app.models.github_connection import GitHubConnection  # noqa: E402
+from app.services import github_evidence  # noqa: E402
+
+REPO = "https://github.com/demo-user/skillgap-ai"
+
+
+@pytest.fixture()
+def github_verified(monkeypatch):
+    """GitHub API is faked: the repo belongs to the user and shows the skill's signal."""
+    calls = []
+
+    def check(token, username, owner, repo, skill):
+        calls.append(skill)
+        return github_evidence.RepoCheck(VerificationStatus.verified, f"{skill} signal found", f"{owner}/{repo}")
+    monkeypatch.setattr(github_evidence, "check_repo", check)
+    return calls
+
+
+def connect_github(db, user):
+    db.add(GitHubConnection(user_id=user.id, github_username="demo-user", github_user_id=1, access_token="t"))
+    db.commit()
+
+
+def test_full_closed_loop_complete_action_evidence_readiness_next_action(client, db, github_verified):
+    u = make_user(db); _, analysis, _ = make_world(db, u); connect_github(db, u); client.state["user"] = u
+    before = client.get(f"/career/{analysis.id}/plan").json()
+    act = next(a for a in before["actions"] if a["action_key"] == "python:PROVE")
+
+    # 1. user completes the action with their repository
+    r = client.patch(f"/career/actions/{act['id']}", json={"status": "COMPLETED", "evidence_url": REPO})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "COMPLETED" and body["plan_stale"] is True and body["evidence_id"]
+    assert body["evidence_results"][0]["status"] == "verified" and "verified" in body["loop_message"]
+
+    # 2. Module 6 stored real, verified evidence (through its own add_evidence + GitHub check)
+    ev = db.get(ProgressEvidence, body["evidence_id"])
+    assert ev.skill_name == "Python" and ev.verification_status == VerificationStatus.verified
+    assert github_verified == ["Python"]
+
+    # 3. readiness recalculated and the plan is stale
+    assert client.get(f"/career/{analysis.id}/plan").json()["stale"] is True
+    after = client.post(f"/career/{analysis.id}/plan/generate").json()
+    assert after["readiness_score"] > before["readiness_score"]
+
+    # 4. the next actions changed: Python is proven now, so PROVE is archived and PREPARE takes its place
+    keys = {a["action_key"] for a in after["actions"]}
+    assert "python:PROVE" not in keys and "python:PREPARE" in keys
+    assert "Python" not in {g["skill_name"] for g in after["evidence_gaps"]}
+
+
+def test_rejected_link_does_not_complete_the_action(client, db):
+    u = make_user(db); _, analysis, _ = make_world(db, u); client.state["user"] = u     # no GitHub connected
+    act = next(a for a in client.get(f"/career/{analysis.id}/plan").json()["actions"] if a["action_key"] == "python:PROVE")
+    r = client.patch(f"/career/actions/{act['id']}", json={"status": "COMPLETED", "evidence_url": REPO})
+    assert r.status_code == 400 and "Connect your GitHub account" in r.json()["detail"]   # Module 6's own message
+    assert db.get(CareerAction, act["id"]).status == ActionStatus.NOT_STARTED
+    assert db.query(ProgressEvidence).count() == 0
+
+
+def test_project_link_is_linked_not_proof(client, db):
+    u = make_user(db); _, analysis, _ = make_world(db, u); client.state["user"] = u
+    act = next(a for a in client.get(f"/career/{analysis.id}/plan").json()["actions"] if a["action_key"] == "python:PROVE")
+    body = client.patch(f"/career/actions/{act['id']}",
+                        json={"status": "COMPLETED", "evidence_url": "https://skillgap-demo.example.com"}).json()
+    assert body["evidence_results"][0]["status"] == "linked" and body["evidence_results"][0]["strength"] == 0.4
+    after = client.post(f"/career/{analysis.id}/plan/generate").json()
+    py = {g["skill_name"]: g for g in after["evidence_gaps"]}["Python"]                # 0.40 < 0.60: still a gap
+    assert "project link is accepted but not verified" in " ".join(py["missing_evidence"])
+
+
+def test_completing_twice_does_not_duplicate_evidence(db, github_verified):
+    u = make_user(db); _, analysis, _ = make_world(db, u); connect_github(db, u)
+    svc.generate_plan(db, u.id, analysis.id)
+    a = actions(db, u)["python:PROVE"]
+    first = svc.update_action(db, u.id, a.id, ActionUpdateRequest(status="COMPLETED", evidence_url=REPO))
+    svc.update_action(db, u.id, a.id, ActionUpdateRequest(status="IN_PROGRESS"))
+    back = svc.update_action(db, u.id, a.id, ActionUpdateRequest(status="COMPLETED", evidence_url=REPO))
+    assert db.query(ProgressEvidence).count() == 1 and back.evidence_id == first.evidence_id
+
+
+def test_uncompleting_keeps_evidence(db, github_verified):
+    u = make_user(db); _, analysis, _ = make_world(db, u); connect_github(db, u)
+    svc.generate_plan(db, u.id, analysis.id)
+    a = actions(db, u)["python:PROVE"]
+    svc.update_action(db, u.id, a.id, ActionUpdateRequest(status="COMPLETED", evidence_url=REPO))
+    svc.update_action(db, u.id, a.id, ActionUpdateRequest(status="NOT_STARTED"))
+    assert db.query(ProgressEvidence).count() == 1
+
+
+def test_project_action_creates_evidence_for_every_covered_skill(db, github_verified):
+    u = make_user(db); _, analysis, rm = make_world(db, u); connect_github(db, u)
+    svc.generate_plan(db, u.id, analysis.id)
+    a = actions(db, u)["rag:LEARN"]
+    a.reason_codes = ["PROJECT", "COVERS:rag,fastapi"]; db.commit()                    # a project covering 2 skills
+    _, results = svc.update_action_with_loop(db, u.id, a.id, ActionUpdateRequest(status="COMPLETED", evidence_url=REPO))
+    assert [r["skill_name"] for r in results] == ["RAG", "FastAPI"]
+    assert github_verified == ["RAG", "FastAPI"]                                       # verified per skill
+
+
+def test_completing_without_link_creates_no_evidence(client, db):
+    u = make_user(db); _, analysis, _ = make_world(db, u); client.state["user"] = u
+    act = client.get(f"/career/{analysis.id}/plan").json()["top_actions"][0]
+    body = client.patch(f"/career/actions/{act['id']}", json={"status": "COMPLETED"}).json()
+    assert body["evidence_results"] == [] and body["plan_stale"] is False and body["loop_message"] is None
+    assert db.query(ProgressEvidence).count() == 0

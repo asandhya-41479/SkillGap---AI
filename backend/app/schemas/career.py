@@ -271,6 +271,22 @@ class CareerActionOut(BaseModel):
     updated_at: Optional[datetime]
 
 
+class EvidenceResult(BaseModel):
+    """What Module 6 did with the link of a completed action (Step 9 closed loop)."""
+    evidence_id: Optional[int] = None
+    skill_name: str
+    kind: Optional[str] = None
+    status: str                       # verified / linked / unverified / unavailable / rejected
+    strength: Optional[float] = None  # Module 6 evidence strength
+    detail: Optional[str] = None
+
+
+class ActionUpdateOut(CareerActionOut):
+    evidence_results: List[EvidenceResult] = []
+    plan_stale: bool = False          # evidence changed: readiness and the plan are recalculated
+    loop_message: Optional[str] = None
+
+
 class CareerPlanOut(BaseModel):
     id: int
     analysis_id: Optional[int]

@@ -36,6 +36,10 @@ def _missing(s: SkillInput, required: list[str], hint: str | None) -> list[str]:
     return [f"Stronger evidence for {s.name}{signal}"]
 
 
+GAP_STATES = ("KNOWN_NO_EVIDENCE", "PARTIAL")
+MAX_GAP_ROWS = 10
+
+
 def evidence_gaps(inputs: CareerInputs, actions: list) -> list[dict]:
     """actions: final ranked ActionCandidates (used to link each gap to its recommended action)."""
     by_skill: dict[str, object] = {}
@@ -47,7 +51,10 @@ def evidence_gaps(inputs: CareerInputs, actions: list) -> list[dict]:
 
     gaps = []
     for s in inputs.skills:
-        if s.importance == "optional" or skill_state(s) == "PROVEN":
+        state = skill_state(s)
+        # only skills you know (at least partly) but cannot prove yet, or that already have some evidence;
+        # a skill you have not learned yet needs a LEARN action first, not an evidence checklist
+        if s.importance == "optional" or state == "PROVEN" or (state not in GAP_STATES and not s.evidence):
             continue
         ev_type = catalog.evidence_type(s.key, s.category)
         hint = inputs.verification_hints.get(s.key)
@@ -66,4 +73,4 @@ def evidence_gaps(inputs: CareerInputs, actions: list) -> list[dict]:
     gaps.sort(key=lambda g: (g["_rank"], g["importance"] != "required", g["skill_name"].lower()))
     for g in gaps:
         g.pop("_rank")
-    return gaps
+    return gaps[:MAX_GAP_ROWS]

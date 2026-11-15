@@ -34,6 +34,11 @@ SKILL_EVIDENCE_TYPE = {
     "embeddings": "ai_pipeline", "prompt engineering": "ai_pipeline",
     "dsa": "problem_solving", "data structures": "problem_solving", "algorithms": "problem_solving",
     "data structures and algorithms": "problem_solving", "problem solving": "problem_solving",
+    "git": "repository_practice", "github": "repository_practice", "version control": "repository_practice",
+    "browser debugging tools": "debugging", "chrome devtools": "debugging", "devtools": "debugging",
+    "debugging": "debugging",
+    "responsive design": "frontend_ui", "css flexbox": "frontend_ui", "css grid": "frontend_ui",
+    "web accessibility (wcag)": "frontend_ui", "web accessibility": "frontend_ui", "accessibility": "frontend_ui",
     "system design": "conceptual", "oop": "conceptual", "object-oriented programming": "conceptual",
     "design patterns": "conceptual", "agile": "conceptual", "microservices": "conceptual",
 }
@@ -45,6 +50,28 @@ EVIDENCE_REQUIRED = {
                     "Working demo or recorded walkthrough"],
     "problem_solving": ["A log or repository of solved {skill} problems with your solutions"],
     "conceptual": ["A short design write-up or notes explaining {skill} with an example from your work"],
+    # any repository shows version-control practice, so these skills are always PROVE, never "build a project"
+    "repository_practice": ["A public GitHub repository with a meaningful commit history",
+                            "A README, and branches or pull requests used in your workflow"],
+    # a tool used while coding: proof is a real bug you investigated, not a repository "using" the tool
+    "debugging": ["A short write-up of a real bug you found and fixed using {skill} (steps and screenshots)"],
+    # visible in a user interface: proof is a page you built
+    "frontend_ui": ["A live page or GitHub repository of your own UI that demonstrates {skill}",
+                    "Screenshots (e.g. mobile and desktop) or a note pointing to where {skill} is applied"],
+}
+
+# Learning-order fallback used ONLY when a skill has no Module 5 roadmap item (no roadmap yet).
+# When a roadmap exists, its own prerequisite graph is used instead. Keys and values: skill_key() form.
+KNOWN_PREREQUISITES = {
+    "axios": ["rest api", "javascript"], "fetch api": ["rest api", "javascript"],
+    "react": ["javascript"], "next.js": ["react"], "redux": ["react"], "state management": ["react"],
+    "react testing library": ["react", "jest"], "jest": ["javascript"], "unit testing": ["javascript"],
+    "typescript": ["javascript"], "node.js": ["javascript"], "express": ["node.js"],
+    "tailwind css": ["css"], "css flexbox": ["css"], "css grid": ["css"], "responsive design": ["css"],
+    "fastapi": ["python"], "django": ["python"], "flask": ["python"], "pandas": ["python"],
+    "rag": ["embeddings", "llm"], "embeddings": ["python"], "langchain": ["llm", "python"],
+    "kubernetes": ["docker"], "ci/cd": ["git"], "github": ["git"], "github actions": ["git"],
+    "postgresql": ["sql"], "mysql": ["sql"], "sqlalchemy": ["sql", "python"],
 }
 
 # Templates: (category, evidence_type) -> title. {skill} and {project} are filled in.
@@ -61,6 +88,8 @@ TITLE_TEMPLATES = {
     ("PROVE", "deployable"): "Add {skill} to one of your GitHub projects (e.g. SkillGap AI) and attach the repo",
     ("PROVE", "ai_pipeline"): "Attach a repository that demonstrates your {skill} work",
     ("PROVE", "roadmap_done"): "You finished the {skill} roadmap item: attach project evidence for it",
+    ("BUILD", "frontend_ui"): "Build and publish a page that demonstrates {skill}",
+    ("PROVE", "repository_practice"): "Publish one of your projects on GitHub with a clean history and README",
     ("PREPARE", "default"): "Prepare to explain your {skill} work in interviews",
     ("PREPARE", "conceptual"): "Prepare {skill} interview topics with examples from your projects",
 }
@@ -74,6 +103,8 @@ SKILL_TITLES = {
     ("sql", "PROVE"): "Add SQL schema/migration files to a project and attach the repo",
     ("aws", "LEARN"): "Learn AWS fundamentals (compute, storage, IAM, deployment)",
     ("git", "PROVE"): "Keep a public repository with a clean commit history and README",
+    ("github", "LEARN"): "Learn the GitHub workflow (repositories, branches, pull requests)",
+    ("browser debugging tools", "LEARN"): "Learn browser DevTools (Elements, Console, Network, debugger)",
 }
 
 # APPLY checklist (job-search readiness). Never names companies, openings, salaries or recruiters.

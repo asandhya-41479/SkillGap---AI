@@ -89,8 +89,10 @@ def action_category(state: str, ev_type: str, verifiable: bool) -> str:
     if state == "KNOWN_NO_EVIDENCE":
         if ev_type == "problem_solving":
             return "PRACTICE"
-        if ev_type == "conceptual":
+        if ev_type in ("conceptual", "debugging"):
             return "PREPARE"
+        if ev_type == "repository_practice":
+            return "PROVE"                  # any repository shows it: never "build a project for Git"
         return "PROVE" if verifiable else "BUILD"
     return "PREPARE"                        # PROVEN
 
@@ -103,13 +105,20 @@ def progress_factor(s: SkillInput) -> float:
     return cfg.PROGRESS_FACTOR.get(s.roadmap_status, 0.0)
 
 
+def prereqs(s: SkillInput) -> list[str]:
+    """Module 5 roadmap prerequisites; the curated fallback only when the skill has no roadmap item."""
+    if s.roadmap_item_id is not None or s.prerequisites:
+        return s.prerequisites
+    return catalog.KNOWN_PREREQUISITES.get(s.key, [])
+
+
 def dependents_map(skills: list[SkillInput], states: dict[str, str]) -> dict[str, list[str]]:
     """skill key -> names of OPEN (not proven) skills whose roadmap prerequisites include it."""
     out: dict[str, list[str]] = {s.key: [] for s in skills}
     for s in skills:
         if states[s.key] == "PROVEN":
             continue
-        for p in s.prerequisites:
+        for p in prereqs(s):
             if p in out and p != s.key:
                 out[p].append(s.name)
     return out
@@ -128,7 +137,7 @@ def blocked_by(skills: list[SkillInput], states: dict[str, str]) -> dict[str, li
     """skill key -> names of its roadmap prerequisites that are still being learned. Such an action is ranked
     after its prerequisites (same rule as Module 6 next action: unblocked work first)."""
     names = {s.key: s.name for s in skills}
-    return {s.key: [names[p] for p in s.prerequisites
+    return {s.key: [names[p] for p in prereqs(s)
                     if p in states and p != s.key and states[p] in _UNLEARNED]
             for s in skills}
 
@@ -136,14 +145,14 @@ def blocked_by(skills: list[SkillInput], states: dict[str, str]) -> dict[str, li
 def dependency_depth(skills: list[SkillInput], states: dict[str, str]) -> dict[str, int]:
     """Length of the longest chain of still-unlearned prerequisites below each skill
     (Python 0 -> FastAPI 1 -> Docker 2). Used to rank actions in a valid learning order. Cycle-safe."""
-    prereqs = {s.key: [p for p in s.prerequisites if p in states and p != s.key and states[p] in _UNLEARNED]
+    pre = {s.key: [p for p in prereqs(s) if p in states and p != s.key and states[p] in _UNLEARNED]
                for s in skills}
     memo: dict[str, int] = {}
 
     def depth(k: str, seen: frozenset) -> int:
         if k in memo:
             return memo[k]
-        d = max((1 + depth(p, seen | {k}) for p in prereqs.get(k, []) if p not in seen), default=0)
+        d = max((1 + depth(p, seen | {k}) for p in pre.get(k, []) if p not in seen), default=0)
         memo[k] = d
         return d
 
@@ -224,7 +233,8 @@ def _title_variant(s: SkillInput, state: str, category: str, ev_type: str) -> st
     if category == "PRACTICE" and ev_type == "problem_solving":
         return "problem_solving"
     if category in ("BUILD", "PROVE"):
-        return ev_type if ev_type in ("codebase", "deployable", "ai_pipeline") else "codebase"
+        return ev_type if ev_type in ("codebase", "deployable", "ai_pipeline", "frontend_ui",
+                                      "repository_practice") else "codebase"
     if category == "PREPARE" and ev_type == "conceptual":
         return "conceptual"
     return "default"

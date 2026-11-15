@@ -119,3 +119,56 @@ def test_optional_and_proven_skills_not_listed():
     plan = build_plan(inputs([sk("Kubernetes", "optional", "gap", category="devops"),
                               sk("Python", "required", "strong", strength=1.0)], score=60))
     assert plan.evidence_gaps == []
+
+
+# ------------------------------------------------------------------ fixes from the real Frontend Developer demo
+def _frontend():
+    P = {("required", "gap"): "high", ("required", "transferable"): "high", ("required", "strong"): "none",
+         ("preferred", "gap"): "medium", ("preferred", "transferable"): "low"}
+    rows = [("JavaScript", "programming_language", "required", "strong"), ("React", "framework", "required", "strong"),
+            ("Git", "tool", "required", "strong"), ("GitHub", "tool", "required", "transferable"),
+            ("REST API", "api", "required", "gap"), ("Axios", "library", "required", "gap"),
+            ("Fetch API", "api", "required", "gap"), ("Browser Debugging Tools", "tool", "required", "gap"),
+            ("Responsive Design", "concept", "required", "gap"), ("TypeScript", "programming_language", "preferred", "gap")]
+    from app.schemas.career import SkillInput
+    skills = [SkillInput(name=n, key=n.lower(), category=c, importance=i, classification=k, m4_priority=P[(i, k)])
+              for n, c, i, k in rows]
+    return inputs(skills, score=29)
+
+
+def test_evidence_gaps_only_for_known_but_unproven_skills():
+    gaps = [g["skill_name"] for g in build_plan(_frontend()).evidence_gaps]
+    assert set(gaps) == {"JavaScript", "React", "Git"}          # not Axios, REST API, ... (learn those first)
+
+
+def test_git_is_proven_in_any_repo_never_a_build_project():
+    a = by_skill(build_plan(_frontend()))["Git"]
+    assert a.category == "PROVE" and "repository" in a.title.lower()
+    assert all("used in real code" not in e for e in a.evidence_required)
+
+
+def test_debugging_tools_evidence_is_a_bug_write_up():
+    from app.services.career import catalog
+    req = catalog.evidence_required("Browser Debugging Tools", catalog.evidence_type("browser debugging tools", "tool"))
+    assert req == ["A short write-up of a real bug you found and fixed using Browser Debugging Tools (steps and screenshots)"]
+
+
+def test_without_roadmap_curated_prerequisites_order_learning():
+    keys = [a.action_key for a in build_plan(_frontend()).actions]
+    assert keys.index("rest api:LEARN") < keys.index("axios:LEARN")
+    assert keys.index("rest api:LEARN") < keys.index("fetch api:LEARN")
+    assert keys[0] == "rest api:LEARN"
+
+
+def test_roadmap_prerequisites_win_over_curated_ones():
+    i = _frontend()
+    ax = next(s for s in i.skills if s.key == "axios")
+    ax.roadmap_item_id, ax.prerequisites = 5, []                # roadmap says: no prerequisite
+    keys = [a.action_key for a in build_plan(i).actions]
+    assert keys.index("axios:LEARN") < keys.index("rest api:LEARN") or \
+        build_plan(i).actions[keys.index("axios:LEARN")].priority_score >= 90
+
+
+def test_no_high_action_is_cut_off():
+    plan = build_plan(_frontend())
+    assert "react:PROVE" in [a.action_key for a in plan.actions]

@@ -76,8 +76,9 @@ export default function ActionCard({ action, rank, onUpdate }) {
       {completing && (
         <div className="mt-3 border-t pt-3 space-y-2">
           <p className="text-xs text-gray-500">
-            Optional: add a link to what you produced. Completing an action does not mark the skill as mastered;
-            your readiness updates from the evidence.
+            Optional: add a link to what you produced. A GitHub repository from your connected account is
+            verified automatically; other links count as linked evidence. Completing an action does not mark the
+            skill as mastered: your readiness updates from the evidence.
           </p>
           <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/you/project"
             className="w-full border rounded px-2 py-1 text-sm" />

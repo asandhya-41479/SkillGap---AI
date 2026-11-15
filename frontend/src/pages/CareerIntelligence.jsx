@@ -31,6 +31,7 @@ export default function CareerIntelligence() {
   const [refreshing, setRefreshing] = useState(false);
   const [prepRefreshing, setPrepRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     Promise.all([getJobs(), listAnalyses()])
@@ -78,9 +79,21 @@ export default function CareerIntelligence() {
     }
   };
 
+  // Closed loop: a completed action with a link becomes Module 6 evidence. When that changed the inputs,
+  // the plan is rebuilt straight away so the user sees readiness and next actions update.
   const onUpdateAction = async (actionId, data) => {
-    await updateCareerAction(actionId, data);           // errors are shown on the card
-    setPlan((await getCareerPlan(latest.id)).data);
+    const r = await updateCareerAction(actionId, data);  // errors are shown on the card
+    if (r.data.loop_message) setNotice(r.data.loop_message);
+    if (r.data.plan_stale) {
+      setRefreshing(true);
+      try {
+        setPlan((await generateCareerPlan(latest.id)).data);
+      } finally {
+        setRefreshing(false);
+      }
+    } else {
+      setPlan((await getCareerPlan(latest.id)).data);
+    }
   };
 
   const onTogglePrep = async (itemId, status) => {
@@ -151,6 +164,13 @@ export default function CareerIntelligence() {
                     className="ml-auto bg-purple-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50">
                     {refreshing ? 'Updating…' : 'Refresh plan'}
                   </button>
+                </div>
+              )}
+
+              {notice && (
+                <div className="mb-4 text-sm text-green-800 bg-green-50 border border-green-200 rounded p-2 flex items-start gap-2">
+                  <span className="flex-1">{notice}{refreshing ? ' Updating your plan…' : ''}</span>
+                  <button onClick={() => setNotice('')} className="text-green-700" aria-label="Dismiss">✕</button>
                 </div>
               )}
 

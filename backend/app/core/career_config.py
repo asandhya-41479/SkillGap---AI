@@ -2,7 +2,7 @@
 Every threshold and weight of the Career Action Engine lives here so it is easy to find, explain and change.
 """
 
-ENGINE_VERSION = "1.0"   # part of the plan cache key: changing rules invalidates cached plans
+ENGINE_VERSION = "1.1"   # part of the plan cache key: changing rules invalidates cached plans (1.1: demo fixes)
 
 # ---------- Skill state ----------
 # A skill counts as "proven" when its best evidence strength (Module 6 evidence_strengths) reaches this value.
@@ -41,7 +41,7 @@ HIGH_THRESHOLD = 65.0
 MEDIUM_THRESHOLD = 40.0
 
 TOP_ACTIONS = 5          # shown on the dashboard
-MAX_ACTIONS = 12         # total active actions per plan (keeps the plan focused)
+MAX_ACTIONS = 15         # total active actions per plan (focused, but no HIGH action is cut off)
 
 # ---------- Career status (approved rules, evaluated top-down) ----------
 # R = % required skills strong, C = critical gaps (required gap/transferable), E = % required skills proven,

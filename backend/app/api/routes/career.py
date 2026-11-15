@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.career import (
     ActionCategory,
     ActionStatus,
+    ActionUpdateOut,
     ActionUpdateRequest,
     CareerActionOut,
     CareerPlanOut,
@@ -39,11 +40,15 @@ def list_actions(
                             category.value if category else None, include_archived)
 
 
-@router.patch("/actions/{action_id}", response_model=CareerActionOut)
+@router.patch("/actions/{action_id}", response_model=ActionUpdateOut)
 def update_action(action_id: int, data: ActionUpdateRequest,
                   user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Update status / evidence of one of YOUR actions. Another user's id returns 404."""
-    return svc.update_action(db, user.id, action_id, data)
+    """Update status / evidence of one of YOUR actions. Another user's id returns 404.
+    Completing with a link creates Module 6 evidence (verified on GitHub for repository links)."""
+    act, results = svc.update_action_with_loop(db, user.id, action_id, data)
+    out = CareerActionOut.model_validate(act).model_dump()
+    return {**out, "evidence_results": results, "plan_stale": bool(results),
+            "loop_message": svc.loop_message(results)}
 
 
 @router.get("/{analysis_id}/plan", response_model=CareerPlanOut)
