@@ -3,7 +3,7 @@ import { getSkills, addSkill, updateSkill, deleteSkill, getProfile } from '../ap
 import { connectGithub, getGithubStatus, analyzeRepos } from '../api/github';
 import SkillForm from '../components/skills/SkillForm';
 import SkillList from '../components/skills/SkillList';
-import GitHubConnectCard from '../components/skills/GitHubConnectCard';
+import GitHubConnectCard from '../components/skills/GithubConnectCard';
 
 export default function SkillProfile() {
   const [profile, setProfile] = useState([]);
