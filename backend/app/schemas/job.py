@@ -27,6 +27,13 @@ class JobRequirementResponse(BaseModel):
     source: str
     confidence: float | None
 
+    alternatives: list[str] = []
+
+    @field_validator("alternatives", mode="before")
+    @classmethod
+    def _none_is_empty(cls, v):
+        return v or []
+
     model_config = {"from_attributes": True}
 
 

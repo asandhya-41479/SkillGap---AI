@@ -23,6 +23,12 @@ export default function ResultRow({ result, requirement }) {
         )}
       </div>
 
+      {requirement.alternatives?.length > 0 && (
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#475467' }}>
+          Any one of: {requirement.alternatives.join(', ')}
+        </p>
+      )}
+
       <p style={{ margin: '8px 0 0', fontSize: 14, color: '#344054' }}>{result.explanation}</p>
 
       <button

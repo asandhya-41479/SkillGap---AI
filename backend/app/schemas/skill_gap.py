@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.models.job import Importance, RequirementCategory
 from app.models.skill_gap import (
@@ -16,6 +16,13 @@ class RequirementInfo(BaseModel):
     skill_name: str
     category: RequirementCategory
     importance: Importance
+
+    alternatives: list[str] = []
+
+    @field_validator("alternatives", mode="before")
+    @classmethod
+    def _none_is_empty(cls, v):
+        return v or []
 
     model_config = {"from_attributes": True}
 

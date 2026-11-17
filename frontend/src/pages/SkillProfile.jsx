@@ -12,6 +12,8 @@ export default function SkillProfile() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState('');
+  // Set by the backend's GitHub callback: /skills?github=connected or ?github=error
+  const [githubNotice] = useState(() => new URLSearchParams(window.location.search).get('github'));
 
   const loadAll = async () => {
     try {
@@ -25,7 +27,10 @@ export default function SkillProfile() {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+    if (githubNotice) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
 
   const handleAdd = async (data) => {
     try {
@@ -76,6 +81,12 @@ export default function SkillProfile() {
     <div className="max-w-3xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-bold">Skill Profile</h1>
       {error && <p className="text-red-600 bg-red-50 p-3 rounded">{error}</p>}
+      {githubNotice === 'connected' && (
+        <p role="status" className="text-green-700 bg-green-50 p-3 rounded">GitHub connected successfully.</p>
+      )}
+      {githubNotice === 'error' && (
+        <p role="alert" className="text-red-600 bg-red-50 p-3 rounded">GitHub connection did not complete. Please click Connect GitHub and try again.</p>
+      )}
 
       <GitHubConnectCard status={githubStatus} onConnect={handleConnect} onAnalyze={handleAnalyze} analyzing={analyzing} />
 

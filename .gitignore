@@ -45,3 +45,4 @@ __pycache__/
 backend/scripts/set_demo_login.py
 backend/scripts/reset_password.py
 backend/scripts/list_accounts.py
+.planning/

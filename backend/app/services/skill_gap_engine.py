@@ -19,6 +19,33 @@ class GapEngineResult:
     priority: PriorityLevel
 
 
+_STRENGTH = {
+    MatchClassification.strong: 3,
+    MatchClassification.partial: 2,
+    MatchClassification.transferable: 1,
+    MatchClassification.gap: 0,
+}
+
+
+def _match_requirement(requirement: JobRequirement, user_skills: list[UserSkill]) -> MatchCandidate:
+    """Best match for the requirement OR any of its alternatives.
+
+    "Vector Databases" with alternatives [Pinecone, FAISS, Chroma] is satisfied by any one of
+    them, so each name is matched and the strongest result wins (ties: higher similarity).
+    A requirement without alternatives is matched exactly as before.
+    """
+    category = requirement.category.value
+    names = [requirement.skill_name] + list(getattr(requirement, "alternatives", None) or [])
+    best: MatchCandidate | None = None
+    for name in names:
+        candidate = find_best_match(requirement_skill_name=name, requirement_category=category,
+                                    user_skills=user_skills)
+        if best is None or (_STRENGTH[candidate.classification], candidate.similarity_score or 0.0) > (
+                _STRENGTH[best.classification], best.similarity_score or 0.0):
+            best = candidate
+    return best
+
+
 def _priority_for(requirement: JobRequirement, classification: MatchClassification) -> PriorityLevel:
     return PRIORITY_TABLE.get((requirement.importance, classification), PriorityLevel.none)
 
@@ -51,11 +78,7 @@ def run_gap_analysis(
     weight_sum = 0.0
 
     for requirement in requirements:
-        match = find_best_match(
-            requirement_skill_name=requirement.skill_name,
-            requirement_category=requirement.category.value,
-            user_skills=user_skills,
-        )
+        match = _match_requirement(requirement, user_skills)
         priority = _priority_for(requirement, match.classification)
 
         results.append(GapEngineResult(job_requirement=requirement, match=match, priority=priority))

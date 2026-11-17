@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -63,6 +63,10 @@ class JobRequirement(Base):
     importance = Column(Enum(Importance), nullable=False, default=Importance.optional)
     source = Column(String(50), nullable=False, default="gemini")
     confidence = Column(Float, nullable=True)
+    # Options the job text offers for this same need, e.g. "Vector Databases" with
+    # ["Pinecone", "FAISS", "Chroma"]. Having ANY one of them satisfies the requirement.
+    # NULL for older jobs and for requirements without alternatives (behaviour unchanged).
+    alternatives = Column(JSON, nullable=True)
 
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,4 +1,6 @@
-from fastapi import HTTPException 
+import logging
+
+from fastapi import HTTPException
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -9,6 +11,8 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.github import GitHubConnectionStatus
 from app.services import github_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/github", tags=["github"])
 
@@ -22,22 +26,41 @@ def connect_github(
     return {"authorize_url": authorize_url}
 
 
+def _back_to_app(result: str) -> RedirectResponse:
+    """Always return the user to the website, with ?github=connected or ?github=error.
+
+    Before this, a failed callback showed a raw JSON error on the backend's address and the
+    user lost the app. The reason is logged on the server, never put in the URL.
+    """
+    base = settings.github_frontend_redirect
+    sep = "&" if "?" in base else "?"
+    return RedirectResponse(url=f"{base}{sep}github={result}")
+
+
 @router.get("/callback")
-async def github_callback(code: str = Query(...), state: str = Query(...), db: Session = Depends(get_db)):
-    user_id = github_service.validate_and_consume_state(db, state)
-    access_token = await github_service.exchange_code_for_token(code)
-    profile = await github_service.fetch_github_profile(access_token)
+async def github_callback(
+    code: str | None = Query(None), state: str | None = Query(None), db: Session = Depends(get_db),
+):
+    # GitHub sends no code when the user clicks "Cancel" (it sends ?error=access_denied instead).
+    if not code or not state:
+        return _back_to_app("error")
+    try:
+        user_id = github_service.validate_and_consume_state(db, state)
+        access_token = await github_service.exchange_code_for_token(code)
+        profile = await github_service.fetch_github_profile(access_token)
 
-    github_service.upsert_github_connection(
-        db,
-        user_id=user_id,
+        github_service.upsert_github_connection(
+            db,
+            user_id=user_id,
+            github_username=profile["login"],
+            github_user_id=profile["id"],
+            access_token=access_token,
+        )
+    except Exception:
+        logger.warning("GitHub OAuth callback failed", exc_info=True)
+        return _back_to_app("error")
 
-        github_username=profile["login"],
-        github_user_id=profile["id"],
-        access_token=access_token,
-    )
-
-    return RedirectResponse(url=settings.github_frontend_redirect)
+    return _back_to_app("connected")
 
 
 @router.get("/status", response_model=GitHubConnectionStatus)

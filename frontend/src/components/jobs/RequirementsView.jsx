@@ -26,6 +26,9 @@ export default function RequirementsView({ requirements }) {
                   title={r.category.replace('_', ' ')}
                 >
                   {r.skill_name}
+                  {r.alternatives?.length > 0 && (
+                    <span className="opacity-80"> (any of: {r.alternatives.join(', ')})</span>
+                  )}
                 </span>
               ))}
             </div>

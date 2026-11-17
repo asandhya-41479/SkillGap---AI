@@ -46,7 +46,7 @@ def analyze_job(db: Session, user_id: int, job_id: int) -> JobDescription:
 
     try:
         raw_items = extract_requirements(job.raw_description)
-        processed = process_extraction(raw_items)
+        processed = process_extraction(raw_items, job.raw_description)
     except HTTPException:
         job.status = JobStatus.failed
         db.commit()
@@ -60,6 +60,7 @@ def analyze_job(db: Session, user_id: int, job_id: int) -> JobDescription:
             skill_name=item["skill_name"],
             category=item["category"],
             importance=item["importance"],
+            alternatives=item.get("alternatives") or None,
             source="gemini",
         ))
 

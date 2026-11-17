@@ -1,6 +1,7 @@
 """Module 6 demo-safety fixes: next best action, Gemini feedback safety/timeout, evidence strengths.
 Pure unit tests: no database, no network, no Gemini."""
 import time
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace as NS
 
 import pytest
@@ -13,6 +14,20 @@ from app.models.skill_gap import MatchClassification as M, PriorityLevel as P
 from app.services import readiness_service as svc
 from app.services.evidence_service import strength
 from app.services.readiness_engine import Req
+
+
+@pytest.fixture(autouse=True)
+def _own_feedback_pool(monkeypatch):
+    """Each test gets its own Gemini-feedback worker pool.
+
+    The app shares one 2-worker pool. Other test files make real (slow or failing) Gemini calls
+    that can keep both workers busy, so a fake call here could wait in the queue past the timeout
+    and fail at random. A private pool makes these tests independent of the network.
+    """
+    pool = ThreadPoolExecutor(max_workers=2)
+    monkeypatch.setattr(svc, "_feedback_pool", pool)
+    yield
+    pool.shutdown(wait=False)
 
 
 def item(i, skill, status=ItemStatus.not_started, priority=P.medium, prereqs=(), scheduled=True):
