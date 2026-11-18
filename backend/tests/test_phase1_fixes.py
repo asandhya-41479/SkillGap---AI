@@ -163,3 +163,56 @@ def test_callback_cancelled_on_github_returns_to_app(github_route):
     r = asyncio.run(github_route.github_callback(code=None, state="s", db=None))
     assert _location(r) == "https://app.example/skills?github=error"
     assert "Invalid" not in _location(r)          # no internal reason leaks into the URL
+
+
+# ---------------------------------------------------------------- 1A: grouping read from the job text
+# Live, Gemini returned Pinecone / FAISS / Chroma as separate items with no alternatives.
+# The code must group them from the text itself, without relying on Gemini.
+
+def _separate(*specs):
+    return [{"name": n, "category": c, "importance": i} for n, c, i in specs]
+
+
+def test_text_groups_parenthesised_list_even_if_gemini_did_not():
+    text = "Required skills:\n- Python\n- Vector Databases (Pinecone, FAISS or Chroma)\n"
+    raw = _separate(("Python", "programming_language", "required"), ("Vector Databases", "database", "required"),
+                    ("Pinecone", "database", "required"), ("FAISS", "database", "required"),
+                    ("Chroma", "database", "required"))
+    out = {i["skill_name"].lower(): i for i in process_extraction(raw, text)}
+    assert set(out) == {"python", "vector databases"}
+    assert [a.lower() for a in out["vector databases"]["alternatives"]] == ["pinecone", "faiss", "chroma"]
+
+
+def test_text_groups_simple_a_or_b():
+    raw = _separate(("AWS", "cloud", "preferred"), ("GCP", "cloud", "preferred"))
+    out = process_extraction(raw, "Preferred skills:\n- AWS or GCP\n")
+    assert len(out) == 1 and out[0]["skill_name"] == "AWS"
+    assert out[0]["alternatives"] == ["Google Cloud Platform"]
+
+
+def test_or_with_a_non_skill_is_not_grouped():
+    raw = _separate(("LangGraph", "framework", "required"), ("LangChain", "framework", "required"))
+    out = process_extraction(raw, "Build workflows using LangGraph or similar orchestration frameworks. LangChain.")
+    assert {i["skill_name"] for i in out} == {"LangGraph", "LangChain"}
+    assert all(i["alternatives"] == [] for i in out)
+
+
+def test_long_comma_list_does_not_swallow_required_skills():
+    raw = _separate(("Python", "programming_language", "required"), ("SQL", "database", "required"),
+                    ("Docker", "devops", "preferred"), ("Kubernetes", "devops", "preferred"))
+    out = {i["skill_name"]: i for i in process_extraction(raw, "Skills: Python, SQL, Docker or Kubernetes")}
+    assert "Python" in out and "SQL" in out                     # never hidden inside a group
+    assert out["Python"]["alternatives"] == [] and out["SQL"]["alternatives"] == []
+
+
+def test_slash_is_not_treated_as_or():
+    raw = _separate(("HTML", "other", "required"), ("CSS", "other", "required"))
+    out = process_extraction(raw, "Required: HTML/CSS")
+    assert {i["skill_name"] for i in out} == {"HTML", "CSS"}
+
+
+def test_grouping_never_adds_a_skill():
+    raw = _separate(("Vector Databases", "database", "required"))
+    out = process_extraction(raw, "- Vector Databases (Pinecone, FAISS or Chroma)")
+    # the options were never extracted as requirements, so the text alone does not invent them
+    assert out[0]["alternatives"] == []

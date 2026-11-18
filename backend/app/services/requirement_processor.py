@@ -1,3 +1,5 @@
+import re
+
 from app.models.job import Importance, RequirementCategory
 from app.services.skill_normalization import normalize_skill_name
 
@@ -71,7 +73,76 @@ def process_extraction(raw_items: list[dict], source_text: str | None = None) ->
             if alt.lower() not in (a.lower() for a in existing["alternatives"]) and len(existing["alternatives"]) < MAX_ALTERNATIVES:
                 existing["alternatives"].append(alt)
 
+    if source_text:
+        _group_from_text(seen, source_text)
     return _fold_listed_alternatives(seen)
+
+
+# "Vector Databases (Pinecone, FAISS or Chroma)"  -> head + a parenthesised list containing "or"
+_PAREN_LIST = re.compile(r"([^,:;()\n]+?)\s*\(([^()]*\bor\b[^()]*)\)", re.IGNORECASE)
+# splits a parenthesised list: "Pinecone, FAISS or Chroma" -> Pinecone | FAISS | Chroma
+_SPLIT_LIST = re.compile(r",|\bor\b|\band/or\b", re.IGNORECASE)
+
+
+def _lookup(seen: dict[str, dict], phrase: str) -> dict | None:
+    phrase = phrase.strip(" -*\u2022\t.").strip()
+    if not phrase:
+        return None
+    norm = normalize_skill_name(phrase).lower()
+    for item in seen.values():
+        if item["skill_name"].lower() == norm:
+            return item
+    return None
+
+
+def _merge(head: dict, members: list[dict]) -> None:
+    for m in members:
+        if m is head:
+            continue
+        if m["skill_name"].lower() not in (a.lower() for a in head["alternatives"]) \
+                and len(head["alternatives"]) < MAX_ALTERNATIVES:
+            head["alternatives"].append(m["skill_name"])
+        if _importance_rank(m["importance"]) > _importance_rank(head["importance"]):
+            head["importance"] = m["importance"]
+
+
+def _group_from_text(seen: dict[str, dict], source_text: str) -> None:
+    """Deterministic backstop for alternatives: read "X, Y or Z" straight from the job text.
+
+    Gemini is asked to group alternatives, but does not always do it. This finds them in the
+    text itself and only groups requirements that were already extracted, so it can never add
+    a skill. "/" is deliberately NOT treated as "or" ("HTML/CSS" usually means both).
+    """
+    used: set[int] = set()
+    for head_text, inner in _PAREN_LIST.findall(source_text):
+        members = [m for m in (_lookup(seen, t) for t in _SPLIT_LIST.split(inner)) if m]
+        unique = list({id(m): m for m in members}.values())
+        if len(unique) < 1:
+            continue
+        head = _lookup(seen, head_text.split("\n")[-1])
+        if head is None:
+            if len(unique) < 2:
+                continue
+            head = unique[0]
+        _merge(head, unique)
+        used.update(id(m) for m in unique)
+        used.add(id(head))
+
+    text_wo_parens = _PAREN_LIST.sub(" ", source_text)
+    # Outside parentheses only the two sides of "or" are grouped: "AWS or GCP". A longer comma list
+    # ("Python, SQL, Docker or Kubernetes") is ambiguous, and grouping required skills by mistake
+    # would hide real gaps, so it is left as separate requirements (safe side).
+    for piece in re.split(r"[;:\n]|\.\s", text_wo_parens):
+        for chunk in piece.split(","):
+            if not re.search(r"\bor\b", chunk, re.IGNORECASE):
+                continue
+            run = [_lookup(seen, t) for t in re.split(r"\bor\b|\band/or\b", chunk, flags=re.IGNORECASE)]
+            if any(m is None for m in run):
+                continue
+            unique = [m for m in {id(m): m for m in run}.values() if id(m) not in used]
+            if len(unique) >= 2:
+                _merge(unique[0], unique)
+                used.update(id(m) for m in unique)
 
 
 def _fold_listed_alternatives(seen: dict[str, dict]) -> list[dict]:
