@@ -1,6 +1,4 @@
 # SkillGap AI backend - production dependencies (UTF-8).
-# CPU-only PyTorch: much smaller than the default CUDA build and fits Render's free plan.
---extra-index-url https://download.pytorch.org/whl/cpu
 
 # Web framework and server
 fastapi==0.141.1
@@ -29,7 +27,7 @@ httpx==0.28.1
 # Gemini
 google-genai==2.18.0
 
-# Embeddings (skill matching)
-numpy==2.5.2
-torch
-sentence-transformers>=3.0
+# Embeddings (skill matching): all-MiniLM-L6-v2 via ONNX Runtime.
+# No PyTorch: it exceeded the 512 MB memory limit of Render's free plan.
+numpy>=1.26
+fastembed>=0.5
