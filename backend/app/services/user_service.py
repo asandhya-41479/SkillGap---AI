@@ -1,8 +1,9 @@
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.models.user import User
-from app.schemas.user import UserRegister, UserUpdate
+from app.schemas.user import PasswordChange, UserRegister, UserUpdate
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
@@ -40,3 +41,11 @@ def update_user(db: Session, user: User, update_data: UserUpdate) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def change_password(db: Session, user: User, data: PasswordChange) -> None:
+    """Changes the password after checking the current one. Only the bcrypt hash is stored."""
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect.")
+    user.password_hash = hash_password(data.new_password)
+    db.commit()

@@ -41,10 +41,11 @@ TAGS = [
 # (METHOD, path) -> summary
 SUMMARIES = {
     ("POST", "/auth/register"): "Create an account",
-    ("POST", "/auth/login"): "Log in and get an access token",
+    ("POST", "/auth/login"): "Log in and get an access token (5 wrong tries = 15-minute wait)",
 
     ("GET", "/users/me"): "Get my account",
     ("PUT", "/users/me"): "Update my name or target role",
+    ("PUT", "/users/me/password"): "Change my password (needs the current password)",
 
     ("POST", "/skills"): "Add a skill",
     ("GET", "/skills"): "List my skills",
