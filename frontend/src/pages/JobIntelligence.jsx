@@ -93,14 +93,20 @@ export default function JobIntelligence() {
                 <p className="font-medium">{selectedJob.title || selectedJob.target_role}</p>
                 <p className="text-sm text-gray-500">{selectedJob.target_role} — {selectedJob.status}</p>
               </div>
-              {selectedJob.status !== 'analyzed' && (
-                <button
-                  onClick={handleAnalyze}
-                  disabled={analyzing}
-                  className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 disabled:opacity-50"
-                >
-                  {analyzing ? 'Analyzing...' : 'Analyze'}
-                </button>
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 disabled:opacity-50"
+              >
+                {analyzing
+                  ? 'Analyzing...'
+                  : selectedJob.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}
+              </button>
+              {selectedJob.status === 'analyzed' && (
+                <p className="text-xs text-gray-500">
+                  Re-analyze extracts the requirements again from the saved description.
+                  Run Skill Gap Analysis afterwards to see the updated result.
+                </p>
               )}
               <RequirementsView requirements={selectedJob.requirements} />
             </div>
