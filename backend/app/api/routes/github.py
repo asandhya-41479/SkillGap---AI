@@ -14,7 +14,7 @@ from app.services import github_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/github", tags=["github"])
+router = APIRouter(prefix="/github", tags=["GITHUB"])
 
 
 @router.get("/connect")

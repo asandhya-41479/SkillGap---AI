@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.skill import SkillProfileItem
 from app.services.skill_service import get_skill_profile
 
-router = APIRouter(prefix="/profile", tags=["profile"])
+router = APIRouter(prefix="/profile", tags=["SKILLS"])
 
 
 @router.get("/skills", response_model=list[SkillProfileItem])

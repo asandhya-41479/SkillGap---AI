@@ -6,7 +6,7 @@ from app.db.database import get_db
 from app.schemas.user import Token, UserLogin, UserRegister, UserResponse
 from app.services.user_service import authenticate_user, create_user, get_user_by_email
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["AUTH"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

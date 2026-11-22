@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.skill import SkillCreate, SkillResponse, SkillUpdate
 from app.services import skill_service
 
-router = APIRouter(prefix="/skills", tags=["skills"])
+router = APIRouter(prefix="/skills", tags=["SKILLS"])
 
 
 @router.post("", response_model=SkillResponse, status_code=status.HTTP_201_CREATED)

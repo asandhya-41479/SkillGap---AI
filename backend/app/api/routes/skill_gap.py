@@ -11,7 +11,7 @@ from app.schemas.skill_gap import (
 )
 from app.services import skill_gap_service
 
-router = APIRouter(prefix="/gap-analysis", tags=["skill-gap"])
+router = APIRouter(prefix="/gap-analysis", tags=["SKILL GAP ANALYSIS"])
 
 
 @router.post("/{job_id}", response_model=SkillGapAnalysisDetailResponse)

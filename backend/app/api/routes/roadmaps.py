@@ -10,7 +10,7 @@ from app.schemas.roadmap import (
 )
 from app.services.roadmap import roadmap_service as svc
 
-router = APIRouter(prefix="/roadmaps", tags=["roadmaps"])
+router = APIRouter(prefix="/roadmaps", tags=["ROADMAP"])
 
 
 @router.post("", response_model=RoadmapDetailResponse, status_code=status.HTTP_201_CREATED)

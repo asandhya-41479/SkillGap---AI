@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.readiness import EvidenceCreate, EvidenceResponse
 from app.services import evidence_service as svc
 
-router = APIRouter(prefix="/evidence", tags=["evidence"])
+router = APIRouter(prefix="/evidence", tags=["PROGRESS"])
 
 
 @router.post("", response_model=EvidenceResponse, status_code=status.HTTP_201_CREATED)

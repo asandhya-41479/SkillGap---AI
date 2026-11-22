@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.readiness import ReadinessComparison, ReadinessHistory, ReadinessResponse
 from app.services import readiness_service as svc
 
-router = APIRouter(prefix="/readiness", tags=["readiness"])
+router = APIRouter(prefix="/readiness", tags=["PROGRESS"])
 
 
 @router.get("/compare", response_model=ReadinessComparison)

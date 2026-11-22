@@ -23,7 +23,7 @@ from app.services.career import career_service as svc
 from app.services.career import interview_service as prep
 from app.services.career import opportunity_service as opp
 
-router = APIRouter(prefix="/career", tags=["career"])
+router = APIRouter(prefix="/career", tags=["CAREER"])
 
 
 @router.get("/actions", response_model=list[CareerActionOut])

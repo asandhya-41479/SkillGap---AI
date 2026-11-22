@@ -7,7 +7,7 @@ from app.models.user import User
 from app.schemas.job import JobCreate, JobDetail, JobListItem, JobRequirementResponse
 from app.services import job_service
 
-router = APIRouter(prefix="/jobs", tags=["jobs"])
+router = APIRouter(prefix="/jobs", tags=["JOBS"])
 
 
 @router.post("", response_model=JobDetail, status_code=status.HTTP_201_CREATED)
