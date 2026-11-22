@@ -1,4 +1,5 @@
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 
@@ -17,5 +18,5 @@ class GitHubConnection(Base):
     github_user_id = Column(Integer, nullable=False)
     access_token = Column(String(500), nullable=False)
 
-    connected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    connected_at = Column(DateTime, default=utcnow, nullable=False)
     last_synced_at = Column(DateTime, nullable=True)

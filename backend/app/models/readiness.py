@@ -1,5 +1,6 @@
 import enum
-from datetime import date, datetime
+from datetime import date
+from app.core.time import utcnow
 
 from sqlalchemy import (
     JSON,
@@ -62,8 +63,8 @@ class ProgressEvidence(Base):
     verified_at = Column(DateTime, nullable=True)
     note = Column(String(300), nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 
 class ReadinessSnapshot(Base):
@@ -103,5 +104,5 @@ class ReadinessSnapshot(Base):
     trigger = Column(Enum(SnapshotTrigger), nullable=False, default=SnapshotTrigger.manual)
     snapshot_date = Column(Date, nullable=False, default=date.today)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)

@@ -1,7 +1,8 @@
 """Module 5 Steps 5-8: build and store a roadmap from verified gaps; read it, track progress, delete it,
 regenerate it (keeping finished work), and re-ask Gemini for better wording when it was unavailable."""
 from dataclasses import replace
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -251,7 +252,7 @@ def update_item_progress(db: Session, user_id: int, roadmap_id: int, item_id: in
         practical = False  # restarting or skipping an item clears it
 
     item.status, item.practical_done = new, practical
-    item.completed_at = (item.completed_at or datetime.utcnow()) if new == ItemStatus.completed else None
+    item.completed_at = (item.completed_at or utcnow()) if new == ItemStatus.completed else None
     if "notes" in data.model_fields_set:
         item.notes = (data.notes or "").strip() or None
     db.commit()

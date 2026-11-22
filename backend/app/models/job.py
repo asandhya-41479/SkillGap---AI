@@ -1,5 +1,6 @@
 import enum
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy import JSON, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -45,8 +46,8 @@ class JobDescription(Base):
     raw_description = Column(Text, nullable=False)
     status = Column(Enum(JobStatus), nullable=False, default=JobStatus.pending)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     requirements = relationship("JobRequirement", back_populates="job", cascade="all, delete-orphan")
 
@@ -69,6 +70,6 @@ class JobRequirement(Base):
     alternatives = Column(JSON, nullable=True)
 
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     job = relationship("JobDescription", back_populates="requirements")

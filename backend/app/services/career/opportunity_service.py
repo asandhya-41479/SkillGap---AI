@@ -8,7 +8,8 @@ Sources:
                  (hash + extracted requirements only, never the raw text).
   JOB_API        no external job-data source is configured: the API says so and nothing is generated.
 """
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -117,7 +118,7 @@ def match_pasted(db: Session, user_id: int, req: OpportunityMatchRequest) -> Opp
     row.title, row.company, row.source_url = req.title, req.company, req.source_url
     row.extracted_requirements = [dict(r, importance=r["importance"] if detected else "unspecified") for r in reqs]
     row.coverage_pct, row.breakdown = pct, bd
-    row.created_at = datetime.utcnow()
+    row.created_at = utcnow()
     db.commit()
     db.refresh(row)
     return row

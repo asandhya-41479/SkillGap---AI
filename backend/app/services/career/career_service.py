@@ -11,7 +11,8 @@ archived (is_active = False), never deleted, so history is kept.
 import hashlib
 import json
 import logging
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
@@ -282,7 +283,7 @@ def update_action_with_loop(db: Session, user_id: int, action_id: int,
         results, ev_id = _attach_evidence(db, user_id, act, url, data.evidence_note)   # may raise: no change
         act.evidence_id = ev_id or act.evidence_id
 
-    now = datetime.utcnow()
+    now = utcnow()
     if data.status is not None:
         if new_status == ActionStatus.IN_PROGRESS and act.started_at is None:
             act.started_at = now

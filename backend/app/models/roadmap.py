@@ -1,5 +1,6 @@
 import enum
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy import (
     JSON,
@@ -103,8 +104,8 @@ class Roadmap(Base):
 
     input_snapshot = Column(JSON, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     user = relationship("User")
     analysis = relationship("SkillGapAnalysis")
@@ -165,8 +166,8 @@ class RoadmapItem(Base):
 
     practical_done = Column(Boolean, nullable=False, default=False, server_default=false())  # Module 6
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     roadmap = relationship("Roadmap", back_populates="items")
     job_requirement = relationship("JobRequirement")

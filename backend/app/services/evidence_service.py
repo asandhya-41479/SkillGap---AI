@@ -5,7 +5,8 @@ proficiency level. Project links are validated but never fetched (no SSRF). GitH
 the user's own stored token, which never leaves the backend.
 """
 import ipaddress
-from datetime import datetime
+
+from app.core.time import utcnow
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
@@ -118,7 +119,7 @@ def add_evidence(db: Session, user_id: int, data: EvidenceCreate) -> tuple[Progr
         if res is None:
             status, detail, repo_full = V.unavailable, None, f"{owner}/{repo}"
         else:
-            status, detail, repo_full, verified_at = res.status, res.detail, res.full_name, datetime.utcnow()
+            status, detail, repo_full, verified_at = res.status, res.detail, res.full_name, utcnow()
     else:
         url = _clean_project_url(data.url)
         status = V.linked
@@ -171,7 +172,7 @@ def reverify(db: Session, user_id: int, evidence_id: int) -> tuple[ProgressEvide
     if res is None:
         ev.verification_status, detail = V.unavailable, None
     else:
-        ev.verification_status, ev.verified_at, detail = res.status, datetime.utcnow(), res.detail
+        ev.verification_status, ev.verified_at, detail = res.status, utcnow(), res.detail
     db.commit()
     db.refresh(ev)
     return ev, detail

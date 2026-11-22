@@ -14,7 +14,8 @@ Only 4 new tables; everything else is REUSED from Modules 3-6 by foreign key:
   recalculates readiness.
 """
 import enum
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy import (
     JSON,
@@ -113,7 +114,7 @@ class CareerPlan(Base):
 
     gemini_used = Column(Boolean, nullable=False, default=False, server_default=false())
     engine_version = Column(String(20), nullable=False)
-    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    generated_at = Column(DateTime, default=utcnow, nullable=False)
 
     actions = relationship("CareerAction", back_populates="plan")
 
@@ -158,8 +159,8 @@ class CareerAction(Base):
     is_active = Column(Boolean, nullable=False, default=True, server_default=true())
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     plan = relationship("CareerPlan", back_populates="actions")
 
@@ -191,8 +192,8 @@ class InterviewPrepItem(Base):
     status = Column(_enum(PrepStatus), nullable=False, default=PrepStatus.NOT_STARTED)
     is_active = Column(Boolean, nullable=False, default=True, server_default=true())
     prepared_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     __table_args__ = (Index("ix_interview_prep_user_job_active", "user_id", "job_description_id", "is_active"),)
 
@@ -214,6 +215,6 @@ class OpportunityMatch(Base):
     extracted_requirements = Column(JSON, nullable=False, default=list)
     coverage_pct = Column(Float, nullable=False)    # requirement coverage, NOT a hiring probability
     breakdown = Column(JSON, nullable=False, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (Index("ix_opportunity_matches_user_created", "user_id", "created_at"),)

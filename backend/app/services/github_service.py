@@ -1,5 +1,6 @@
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.core.time import utcnow
 
 import httpx
 from fastapi import HTTPException, status
@@ -42,7 +43,7 @@ def validate_and_consume_state(db: Session, state: str) -> int:
     if state_row is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state.")
 
-    if datetime.utcnow() - state_row.created_at > timedelta(minutes=STATE_EXPIRY_MINUTES):
+    if utcnow() - state_row.created_at > timedelta(minutes=STATE_EXPIRY_MINUTES):
         db.delete(state_row)
         db.commit()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth state expired.")
@@ -100,7 +101,7 @@ def upsert_github_connection(
         connection.github_username = github_username
         connection.github_user_id = github_user_id
         connection.access_token = access_token
-        connection.connected_at = datetime.utcnow()
+        connection.connected_at = utcnow()
 
     db.commit()
     db.refresh(connection)
@@ -164,6 +165,6 @@ async def analyze_repositories(db: Session, user_id: int) -> dict:
                 _record_evidence(db, user_id, topic, SkillCategory.tool, repo, DetectedVia.topic)
 
 
-    connection.last_synced_at = datetime.utcnow()
+    connection.last_synced_at = utcnow()
     db.commit()
     return {"repositories_analyzed": len(repos)}

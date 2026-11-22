@@ -1,5 +1,6 @@
 import enum
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy import (
     Boolean,  # Module 6
@@ -62,7 +63,7 @@ class SkillGapAnalysis(Base):
     overall_alignment_score = Column(Float, nullable=True)  # null if status == failed
     status = Column(Enum(AnalysisStatus), nullable=False, default=AnalysisStatus.completed)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
     user = relationship("User")
@@ -99,7 +100,7 @@ class SkillGapResult(Base):
 
     evidence_adjusted = Column(Boolean, nullable=False, default=False, server_default=false())
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     analysis = relationship("SkillGapAnalysis", back_populates="results")
     job_requirement = relationship("JobRequirement")

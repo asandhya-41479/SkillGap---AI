@@ -7,7 +7,8 @@
   kept, so opening the page never triggers a Gemini call.
 - Marking HIGH topics as prepared changes Q, which changes the career plan's input hash (closed loop).
 """
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -56,7 +57,7 @@ def generate_prep(db: Session, user_id: int, analysis_id: int, force: bool = Fal
     new_specs = [s for s in specs if force or s["topic_id"] not in existing]
     gemini = interview_questions.generate(inputs.target_role, new_specs, call=question_call)   # before writes
 
-    now = datetime.utcnow()
+    now = utcnow()
     wanted = set()
     for s in specs:
         wanted.add(s["topic_id"])
@@ -98,7 +99,7 @@ def update_item(db: Session, user_id: int, item_id: int, status: str) -> Intervi
     if not row.is_active:
         raise HTTPException(409, "This topic was replaced. Refresh your interview preparation.")
     row.status = PrepStatus(status)
-    row.prepared_at = datetime.utcnow() if row.status == PrepStatus.PREPARED else None
+    row.prepared_at = utcnow() if row.status == PrepStatus.PREPARED else None
     db.commit()
     db.refresh(row)
     return row

@@ -1,5 +1,6 @@
 import enum
-from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy import (
     Boolean,
@@ -57,8 +58,8 @@ class UserSkill(Base):
     self_assessed_level = Column(Enum(SkillLevel), nullable=True)  # null if GitHub-only, no manual entry
     is_manual = Column(Boolean, nullable=False, default=False)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     user = relationship("User")
     evidence = relationship(
@@ -80,6 +81,6 @@ class SkillEvidence(Base):
     repo_url = Column(String(500), nullable=False)
     detected_via = Column(Enum(DetectedVia), nullable=False)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     user_skill = relationship("UserSkill", back_populates="evidence")
