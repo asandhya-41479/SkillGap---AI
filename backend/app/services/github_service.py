@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import timedelta
 from app.core.time import utcnow
@@ -11,6 +12,9 @@ from app.models.github_connection import GitHubConnection
 from app.models.oauth_state import OAuthState
 from app.models.skill import DetectedVia, EvidenceSource, SkillCategory, SkillEvidence, UserSkill
 from app.services.skill_normalization import normalize_skill_name
+
+
+logger = logging.getLogger(__name__)
 
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -28,8 +32,8 @@ def create_authorize_url(db: Session, user_id: int) -> str:
     db.commit()
 
     params = (
-        f"client_id={settings.github_client_id}"
-        f"&redirect_uri={settings.github_redirect_uri}"
+        f"client_id={settings.github_client_id.strip()}"
+        f"&redirect_uri={settings.github_redirect_uri.strip()}"
                 f"&scope=read:user public_repo"
 
         f"&state={state}"
@@ -60,16 +64,28 @@ async def exchange_code_for_token(code: str) -> str:
             GITHUB_TOKEN_URL,
             headers={"Accept": "application/json"},
             data={
-                "client_id": settings.github_client_id,
-                "client_secret": settings.github_client_secret,
+                # .strip(): a value pasted into the hosting dashboard with a trailing space or
+                # newline is a common cause of "incorrect_client_credentials".
+                "client_id": settings.github_client_id.strip(),
+                "client_secret": settings.github_client_secret.strip(),
                 "code": code,
-                "redirect_uri": settings.github_redirect_uri,
+                "redirect_uri": settings.github_redirect_uri.strip(),
 
             },
         )
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError:
+        data = {}
     access_token = data.get("access_token")
     if not access_token:
+        # GitHub explains why (e.g. incorrect_client_credentials, redirect_uri_mismatch,
+        # bad_verification_code). Its answer never contains our secret, so it is safe to log.
+        logger.warning(
+            "GitHub token exchange refused: http=%s error=%s description=%s client_id_ends=%s redirect_uri=%s",
+            response.status_code, data.get("error"), data.get("error_description"),
+            (settings.github_client_id or "")[-4:], settings.github_redirect_uri,
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to obtain GitHub access token.")
     return access_token
 
