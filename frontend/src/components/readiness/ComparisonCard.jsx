@@ -23,6 +23,14 @@ function Row({ label, before, after, unit = '', deltaUnit = '' }) {
 
 // For counts of gaps, fewer is better, so the colour is reversed.
 function CountRow({ label, before, after, fewerIsBetter = false }) {
+  if (before === null || before === undefined) {
+    return (
+      <div className="flex justify-between items-baseline py-1 text-sm border-b last:border-0">
+        <span className="text-gray-600">{label}</span>
+        <span>— → {after}</span>
+      </div>
+    );
+  }
   const delta = after - before;
   const good = fewerIsBetter ? delta < 0 : delta > 0;
   return (
@@ -55,6 +63,12 @@ export default function ComparisonCard({ comparison, scoreBefore, scoreAfter, ha
             unit="%" deltaUnit="percentage points" />
           {scoreBefore !== null && scoreAfter !== null && (
             <Row label="Career readiness" before={Math.round(scoreBefore)} after={Math.round(scoreAfter)} deltaUnit="points" />
+          )}
+          {comparison.before_details_unavailable && (
+            <p className="text-xs text-gray-500 mb-1">
+              The job's requirements were re-extracted after analysis #{comparison.from_analysis_id}, so its
+              per-skill details are no longer available. Its alignment score is still shown.
+            </p>
           )}
           <CountRow label="Strong matches" before={comparison.strong_before} after={comparison.strong_after} />
           <CountRow label="High-priority gaps" before={comparison.high_priority_before} after={comparison.high_priority_after} fewerIsBetter />

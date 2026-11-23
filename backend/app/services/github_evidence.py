@@ -1,7 +1,8 @@
 """Module 6 Step 4: check whether a GitHub repository really contains work for a skill.
 
-Only STRUCTURAL signals in the repository root count: files, folders, declared dependencies and language
-bytes. A README mention, the repo name or its topics never verify anything. A skill with no rule stays "linked".
+Only STRUCTURAL signals count: files, folders, declared dependencies and language bytes in the repository
+root, plus the dependency manifests and files of standard sub-project folders (backend/, frontend/ ...) so a
+monorepo is checked as well. A README mention, the repo name or its topics never verify anything. A skill with no rule stays "linked".
 The only network call is _get, so tests replace it and never touch GitHub.
 """
 import json
@@ -18,6 +19,9 @@ TIMEOUT = httpx.Timeout(10.0)
 MIN_LANGUAGE_BYTES = 2000
 MAX_FILE_CHARS = 200_000
 MANIFESTS = ("requirements.txt", "pyproject.toml", "package.json")
+# A monorepo keeps its manifests one level down (e.g. backend/requirements.txt, frontend/package.json).
+SUBPROJECT_DIRS = ("backend", "frontend", "server", "client", "api", "web")
+MAX_SUBPROJECTS = 3
 REPO_URL = re.compile(r"^https://github\.com/([A-Za-z0-9][A-Za-z0-9-]{0,38})/([A-Za-z0-9._-]{1,100}?)(?:\.git)?/?$")
 
 
@@ -137,13 +141,33 @@ def _find_signal(token: str, full: str, rule: Rule) -> str | None:
         for lang in rule.languages:
             if isinstance(langs.get(lang), int) and langs[lang] >= MIN_LANGUAGE_BYTES:
                 return f"{langs[lang] // 1000 or 1} KB of {lang} code"
-    if rule.deps:
-        for manifest in MANIFESTS:
-            if manifest in files:
-                code, text = _get(f"/repos/{full}/contents/{manifest}", token, raw=True)
-                hit = _dependency_names(manifest, text or "") & set(rule.deps)
-                if hit:
-                    return f"dependency {sorted(hit)[0]} declared in {manifest}"
+    found = _manifest_signal(token, full, files, rule, prefix="")
+    if found:
+        return found
+    # Monorepo: the same strict checks (named files, declared dependencies) inside standard sub-project folders.
+    for d in [dirs[d] for d in SUBPROJECT_DIRS if d in dirs][:MAX_SUBPROJECTS]:
+        code, sub = _get(f"/repos/{full}/contents/{d}", token)
+        sub_items = sub if code == 200 and isinstance(sub, list) else []
+        sub_files = {i["name"].lower(): i["name"] for i in sub_items if i.get("type") == "file" and i.get("name")}
+        for f in rule.files:
+            if f in sub_files:
+                return f"{d}/{sub_files[f]} in the repository"
+        found = _manifest_signal(token, full, sub_files, rule, prefix=f"{d}/")
+        if found:
+            return found
+    return None
+
+
+def _manifest_signal(token: str, full: str, files: dict, rule: Rule, prefix: str) -> str | None:
+    """A dependency of the rule declared in requirements.txt / pyproject.toml / package.json at prefix."""
+    if not rule.deps:
+        return None
+    for manifest in MANIFESTS:
+        if manifest in files:
+            code, text = _get(f"/repos/{full}/contents/{prefix}{manifest}", token, raw=True)
+            hit = _dependency_names(manifest, text or "") & set(rule.deps)
+            if hit:
+                return f"dependency {sorted(hit)[0]} declared in {prefix}{manifest}"
     return None
 
 
@@ -164,5 +188,5 @@ def check_repo(token: str, username: str, owner: str, repo: str, skill_name: str
     found = _find_signal(token, full, rule)
     if found:
         return RepoCheck(V.verified, f"Found {found}.", full)
-    return RepoCheck(V.unverified, "Repository found, but nothing in its root (files, folders, dependencies or "
-                                   "languages) shows this skill.", full)
+    return RepoCheck(V.unverified, "Repository found, but nothing in its root or its backend/frontend folders "
+                                   "(files, folders, dependencies or languages) shows this skill.", full)

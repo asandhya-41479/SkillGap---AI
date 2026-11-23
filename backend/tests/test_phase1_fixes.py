@@ -216,3 +216,94 @@ def test_grouping_never_adds_a_skill():
     out = process_extraction(raw, "- Vector Databases (Pinecone, FAISS or Chroma)")
     # the options were never extracted as requirements, so the text alone does not invent them
     assert out[0]["alternatives"] == []
+
+
+# ---------------------------------------------------------------- monorepo evidence + comparison after re-analysis
+
+from app.models.readiness import VerificationStatus
+from app.services import github_evidence as ge
+
+
+def _fake_github(tree):
+    """tree: {"": [("backend", "dir"), ...], "backend": [("requirements.txt", "file")], "backend/requirements.txt": "text"}"""
+    def get(path, token, raw=False):
+        if path == "/repos/me/mono":
+            return 200, {"full_name": "me/mono", "fork": False, "owner": {"login": "me"}}
+        if path.endswith("/languages"):
+            return 200, {}
+        rel = path.split("/contents/", 1)[1].strip("/")
+        node = tree.get(rel)
+        if node is None:
+            return 404, None
+        if isinstance(node, str):
+            return 200, node
+        return 200, [{"name": n, "type": t} for n, t in node]
+    return get
+
+
+def test_monorepo_backend_dependency_is_found(monkeypatch):
+    tree = {"": [("backend", "dir"), ("frontend", "dir"), ("README.md", "file")],
+            "backend": [("requirements.txt", "file")],
+            "backend/requirements.txt": "fastapi==0.141.1\nuvicorn\n",
+            "frontend": [("package.json", "file")],
+            "frontend/package.json": '{"dependencies": {"react": "^19.0.0"}}'}
+    monkeypatch.setattr(ge, "_get", _fake_github(tree))
+    r = ge.check_repo("tok", "me", "me", "mono", "FastAPI")
+    assert r.status == VerificationStatus.verified and "backend/requirements.txt" in r.detail
+    r = ge.check_repo("tok", "me", "me", "mono", "React")
+    assert r.status == VerificationStatus.verified and "frontend/package.json" in r.detail
+
+
+def test_monorepo_without_the_dependency_is_not_verified(monkeypatch):
+    tree = {"": [("backend", "dir")], "backend": [("requirements.txt", "file")],
+            "backend/requirements.txt": "flask\n"}
+    monkeypatch.setattr(ge, "_get", _fake_github(tree))
+    r = ge.check_repo("tok", "me", "me", "mono", "FastAPI")
+    assert r.status == VerificationStatus.unverified
+
+
+def test_readme_mention_in_subfolder_never_counts(monkeypatch):
+    tree = {"": [("backend", "dir")], "backend": [("README.md", "file")],
+            "backend/README.md": "Built with FastAPI"}
+    monkeypatch.setattr(ge, "_get", _fake_github(tree))
+    assert ge.check_repo("tok", "me", "me", "mono", "FastAPI").status == VerificationStatus.unverified
+
+
+def test_unknown_folders_are_not_searched(monkeypatch):
+    calls = []
+    base = _fake_github({"": [("random_stuff", "dir")]})
+
+    def spy(path, token, raw=False):
+        calls.append(path)
+        return base(path, token, raw)
+
+    monkeypatch.setattr(ge, "_get", spy)
+    ge.check_repo("tok", "me", "me", "mono", "FastAPI")
+    assert not any("random_stuff" in c for c in calls)
+
+
+from tests.test_readiness_engine import rd  # noqa: E402,F401  (pytest fixture)
+from tests.test_roadmap_api import api  # noqa: E402,F401  (pytest fixture used by rd)
+
+
+def test_compare_after_reanalysis_shows_unavailable_not_zero(rd):
+    """An analysis whose per-skill results were removed (job re-analysed) is not reported as 0 strong."""
+    from app.models.job import JobDescription
+    from app.models.skill_gap import SkillGapAnalysis
+    with rd.api.Session() as s:
+        j = s.query(JobDescription).first()
+        old = SkillGapAnalysis(user_id=rd.api.uid, job_description_id=j.id, overall_alignment_score=30.0)
+        s.add(old)
+        s.commit()
+        old_id = old.id
+    comp = rd.c.get(f"/readiness/compare?from_analysis_id={old_id}&to_analysis_id={rd.api.aid}").json()
+    assert comp["before_details_unavailable"] is True
+    assert comp["strong_before"] is None and comp["high_priority_before"] is None
+    assert comp["alignment_before"] == 30.0                 # the stored score is still compared
+    assert comp["strong_after"] >= 0
+
+
+def test_compare_normal_case_is_unchanged(rd):
+    comp = rd.c.get(f"/readiness/compare?from_analysis_id={rd.api.aid}&to_analysis_id={rd.api.aid}").json()
+    assert comp["before_details_unavailable"] is False
+    assert isinstance(comp["strong_before"], int)

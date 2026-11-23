@@ -300,6 +300,8 @@ def compare_analyses(db: Session, user_id: int, from_id: int, to_id: int) -> Rea
     a_score = to_a.overall_alignment_score if to_a.overall_alignment_score is not None else _alignment_pct(to_a.results)
     delta = round(a_score - b_score, 2) if b_score is not None and a_score is not None else None
 
+    # An analysis whose per-skill results were removed (job re-analysed) must not be counted as "0 strong".
+    before_ok = bool(from_a.results)
     from_map = {r.job_requirement.skill_name.lower(): _val(r.classification) for r in from_a.results if r.job_requirement}
     skill_changes = [
         SkillChange(skill_name=r.job_requirement.skill_name, before=from_map[k], after=_val(r.classification))
@@ -311,11 +313,12 @@ def compare_analyses(db: Session, user_id: int, from_id: int, to_id: int) -> Rea
     return ReadinessComparison(
         from_analysis_id=from_id, to_analysis_id=to_id,
         alignment_before=b_score, alignment_after=a_score, alignment_delta_points=delta,
-        strong_before=sum(r.classification == MatchClassification.strong for r in from_a.results),
+        strong_before=sum(r.classification == MatchClassification.strong for r in from_a.results) if before_ok else None,
         strong_after=sum(r.classification == MatchClassification.strong for r in to_a.results),
-        high_priority_before=sum(r.priority == PriorityLevel.high for r in from_a.results),
+        high_priority_before=sum(r.priority == PriorityLevel.high for r in from_a.results) if before_ok else None,
         high_priority_after=sum(r.priority == PriorityLevel.high for r in to_a.results),
         skill_changes=skill_changes,
+        before_details_unavailable=not before_ok,
     )
 
 

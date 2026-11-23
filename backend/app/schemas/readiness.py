@@ -144,9 +144,13 @@ class ReadinessComparison(BaseModel):
     alignment_before: float | None
     alignment_after: float | None
     alignment_delta_points: float | None
-    strong_before: int
+    strong_before: int | None          # None: the earlier analysis no longer has per-skill results
     strong_after: int
-    high_priority_before: int
+    high_priority_before: int | None
     high_priority_after: int
     skill_changes: list[SkillChange]
+    # True when the job's requirements were re-extracted after the earlier analysis. Re-extraction
+    # replaces the requirement rows, and the database removes the per-skill results that pointed at
+    # them (ON DELETE CASCADE). The earlier alignment score is stored on the analysis and still shown.
+    before_details_unavailable: bool = False
 
