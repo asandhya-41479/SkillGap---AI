@@ -52,20 +52,20 @@ export default function EvidencePanel({ skills, evidence, onChanged, preset }) {
     run(ev.id, () => deleteEvidence(ev.id), () => 'Evidence removed.');
   };
 
-  const field = 'border rounded px-2 py-1 w-full';
+  const field = 'rounded-xl border-[1.5px] border-slate-300 px-2.5 py-2 w-full';
   const relevant = evidence.filter((e) => skills.some((s) => s.toLowerCase() === e.skill_name.toLowerCase()));
   const other = evidence.length - relevant.length;
 
   return (
-    <div ref={boxRef} className="bg-white border rounded-lg p-4 mb-4">
+    <div ref={boxRef} className="card">
       <div className="text-sm font-semibold">Skill evidence</div>
-      <p className="text-xs text-gray-500 mb-3">
+      <p className="text-xs text-muted mb-3">
         Completing a roadmap task counts as learning. A verified GitHub repository counts as demonstrated work.
         Evidence never raises your skill level by itself.
       </p>
 
       {relevant.length === 0 ? (
-        <p className="text-sm text-gray-600 mb-3">No evidence attached for this role's skills yet.</p>
+        <p className="text-sm text-slate-700 mb-3">No evidence attached for this role's skills yet.</p>
       ) : (
         <div className="mb-3">
           {relevant.map((ev) => {
@@ -74,15 +74,15 @@ export default function EvidencePanel({ skills, evidence, onChanged, preset }) {
               <div key={ev.id} className="border rounded p-2 mb-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <strong>{ev.skill_name}</strong>
-                  <span className="text-gray-500">{ev.kind === 'github_repo' ? 'GitHub' : 'Project link'}</span>
+                  <span className="text-muted">{ev.kind === 'github_repo' ? 'GitHub' : 'Project link'}</span>
                   <span className={`text-xs px-2 py-0.5 rounded ${st.cls}`}>{st.text}</span>
                   {ev.strength !== null && ev.strength !== undefined && (
-                    <span className="text-xs text-gray-500">strength {ev.strength.toFixed(2)}</span>
+                    <span className="text-xs text-muted">strength {ev.strength.toFixed(2)}</span>
                   )}
                   <span className="ml-auto flex gap-3">
                     {ev.kind === 'github_repo' && (
                       <button onClick={() => handleVerify(ev)} disabled={busy !== null}
-                        className="text-xs text-purple-700 hover:underline disabled:opacity-50">
+                        className="text-xs text-brand hover:underline disabled:opacity-50">
                         {busy === ev.id ? 'Checking…' : 'Check again'}
                       </button>
                     )}
@@ -93,13 +93,13 @@ export default function EvidencePanel({ skills, evidence, onChanged, preset }) {
                 <a href={ev.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-700 break-all hover:underline">
                   {ev.repo_full_name || ev.url}
                 </a>
-                {ev.note && <p className="text-xs text-gray-600">{ev.note}</p>}
+                {ev.note && <p className="text-xs text-slate-700">{ev.note}</p>}
               </div>
             );
           })}
         </div>
       )}
-      {other > 0 && <p className="text-xs text-gray-400 mb-3">{other} more item(s) belong to skills outside this role.</p>}
+      {other > 0 && <p className="text-xs text-slate-500 mb-3">{other} more item(s) belong to skills outside this role.</p>}
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         <label>Skill
@@ -122,7 +122,7 @@ export default function EvidencePanel({ skills, evidence, onChanged, preset }) {
           <input value={form.note} onChange={set('note')} maxLength={300} className={field} placeholder="What did you build?" />
         </label>
         <button onClick={handleAdd} disabled={!form.skill_name || form.url.trim().length < 12 || busy !== null}
-          className="col-span-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50">
+          className="col-span-2 bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark disabled:opacity-50">
           {busy === 'add' ? (form.kind === 'github_repo' ? 'Checking the repository…' : 'Saving…') : 'Add evidence'}
         </button>
       </div>

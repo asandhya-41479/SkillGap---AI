@@ -5,10 +5,12 @@ import Dashboard from './pages/Dashboard';
 import SkillProfile from './pages/SkillProfile';
 import JobIntelligence from './pages/JobIntelligence';
 import ProtectedRoute from './components/ProtectedRoute';
+import AppLayout from './components/layout/AppLayout';
 import SkillGapAnalysis from './pages/SkillGapAnalysis';
 import Roadmap from './pages/Roadmap';
 import CareerReadiness from './pages/CareerReadiness';
 import CareerIntelligence from './pages/CareerIntelligence';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -16,65 +18,26 @@ function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
 
+      {/* Every logged-in page shares the sidebar layout. */}
       <Route
-        path="/skills"
         element={
           <ProtectedRoute>
-            <SkillProfile />
+            <AppLayout />
           </ProtectedRoute>
         }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/skills" element={<SkillProfile />} />
+        <Route path="/jobs" element={<JobIntelligence />} />
+        <Route path="/skill-gap" element={<SkillGapAnalysis />} />
+        <Route path="/roadmap" element={<Roadmap />} />
+        <Route path="/readiness" element={<CareerReadiness />} />
+        <Route path="/career" element={<CareerIntelligence />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
 
-      />
-
-      <Route
-        path="/jobs"
-        element={
-          <ProtectedRoute>
-            <JobIntelligence />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/skill-gap"
-        element={
-          <ProtectedRoute>
-            <SkillGapAnalysis />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/roadmap"
-        element={
-          <ProtectedRoute>
-            <Roadmap />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/readiness"
-        element={
-          <ProtectedRoute>
-            <CareerReadiness />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/career"
-        element={
-          <ProtectedRoute>
-            <CareerIntelligence />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

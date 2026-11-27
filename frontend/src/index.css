@@ -1,1 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
+
+/* SkillGap AI design tokens (one place for colours and fonts). */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', ui-sans-serif, sans-serif;
+
+  --color-night: #071026;        /* auth panel */
+  --color-navy: #0A2540;         /* sidebar */
+  --color-navy-soft: #13325A;
+  --color-canvas: #F5F8FF;       /* page background */
+  --color-brand: #2563EB;        /* primary */
+  --color-brand-dark: #1D4ED8;
+  --color-brand-soft: #DBEAFE;
+  --color-ink: #0F172A;          /* main text */
+  --color-muted: #475569;        /* secondary text (passes 4.5:1 on white) */
+  --color-line: #E2E8F0;
+
+  --color-strong: #2563EB;       /* strong match */
+  --color-high: #EA580C;         /* high-priority gap */
+  --color-medium: #D97706;       /* medium gap */
+  --color-low: #94A3B8;          /* low gap */
+  --color-verified: #16A34A;     /* verified evidence */
+}
+
+/* Tailwind 4 draws plain `border` in the text colour; keep borders a soft grey everywhere. */
+@layer base {
+  *, ::before, ::after { border-color: var(--color-line); }
+}
+
+html, body, #root { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reusable building blocks */
+@layer components {
+  .card { @apply rounded-2xl bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,.06),0_8px_24px_rgba(37,99,235,.05)]; }
+  .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-white shadow-[0_8px_20px_rgba(37,99,235,.25)] transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60; }
+  .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-semibold text-ink transition hover:bg-slate-50 disabled:opacity-60; }
+  .field-label { @apply text-sm font-semibold text-slate-800; }
+  .field-box { @apply flex h-13 items-center gap-2.5 rounded-xl border-[1.5px] border-slate-300 bg-white px-3.5 transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand-soft; }
+  .field-box input, .field-box select { @apply h-full min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-slate-500; }
+  .page-title { @apply font-display text-3xl font-bold tracking-tight text-ink; }
+  .eyebrow { @apply text-xs font-bold uppercase tracking-[.08em] text-muted; }
+}

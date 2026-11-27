@@ -37,14 +37,14 @@ function Item({ item, onToggle }) {
       </div>
       {open && (
         <div className="mt-2 text-sm">
-          <p className="text-gray-600">{item.why}</p>
+          <p className="text-slate-700">{item.why}</p>
           <ol className="list-decimal ml-5 mt-2 space-y-2">
             {item.questions.map((q) => (
               <li key={q.question}>
                 {q.question}
                 {q.answer_points?.length > 0 && (
                   <details className="mt-1">
-                    <summary className="text-xs text-purple-700 cursor-pointer">How SkillGap AI actually does it</summary>
+                    <summary className="text-xs text-brand cursor-pointer">How SkillGap AI actually does it</summary>
                     <ul className="list-disc ml-5 text-gray-700">{q.answer_points.map((a) => <li key={a}>{a}</li>)}</ul>
                   </details>
                 )}
@@ -52,7 +52,7 @@ function Item({ item, onToggle }) {
             ))}
           </ol>
           {item.questions.some((q) => q.source === 'gemini') && (
-            <p className="text-xs text-gray-400 mt-1">Questions worded by AI for these topics, then checked by the backend.</p>
+            <p className="text-xs text-slate-500 mt-1">Questions worded by AI for these topics, then checked by the backend.</p>
           )}
         </div>
       )}
@@ -67,15 +67,15 @@ export default function InterviewPrep({ prep, onToggle, onRefresh, refreshing })
   const items = prep.items.filter((i) => i.kind === tab);
 
   return (
-    <div className="bg-white border rounded-lg p-4 mb-4">
+    <div className="card">
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <div className="text-xs font-semibold tracking-wide text-gray-500">INTERVIEW PREPARATION</div>
-        <span className="text-xs text-gray-600">
+        <div className="text-xs font-semibold tracking-wide text-muted">INTERVIEW PREPARATION</div>
+        <span className="text-xs text-slate-700">
           High-priority topics prepared: {prep.high_priority_prepared} / {prep.high_priority_total}
         </span>
         {prep.stale && (
           <button onClick={onRefresh} disabled={refreshing}
-            className="ml-auto text-xs bg-purple-600 text-white px-2 py-1 rounded disabled:opacity-50">
+            className="ml-auto text-xs bg-brand text-white px-2 py-1 rounded disabled:opacity-50">
             {refreshing ? 'Updating…' : 'Priorities changed: update topics'}
           </button>
         )}
@@ -83,16 +83,16 @@ export default function InterviewPrep({ prep, onToggle, onRefresh, refreshing })
       <div className="flex gap-1 border-b mb-3">
         {Object.entries(PREP_KIND).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`px-3 py-1 text-sm -mb-px border-b-2 ${tab === k ? 'border-purple-600 text-purple-700' : 'border-transparent text-gray-500'}`}>
+            className={`px-3 py-1 text-sm -mb-px border-b-2 ${tab === k ? 'border-brand text-brand' : 'border-transparent text-muted'}`}>
             {label} ({prep.items.filter((i) => i.kind === k).length})
           </button>
         ))}
       </div>
       <div className="space-y-2">
         {items.length ? items.map((i) => <Item key={i.id} item={i} onToggle={onToggle} />)
-          : <p className="text-sm text-gray-500">No topics in this group.</p>}
+          : <p className="text-sm text-muted">No topics in this group.</p>}
       </div>
-      <p className="text-xs text-gray-400 mt-3">{prep.note}</p>
+      <p className="text-xs text-slate-500 mt-3">{prep.note}</p>
     </div>
   );
 }

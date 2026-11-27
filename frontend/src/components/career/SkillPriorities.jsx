@@ -6,12 +6,12 @@ import { IMPORTANCE_TEXT } from '../readiness/labels';
 export default function SkillPriorities({ rows }) {
   if (!rows?.length) return null;
   return (
-    <div className="bg-white border rounded-lg p-4 mb-4">
-      <div className="text-xs font-semibold tracking-wide text-gray-500 mb-2">SKILL PRIORITIES</div>
-      <div className="overflow-x-auto">
+    <div className="card">
+      <div className="text-xs font-semibold tracking-wide text-muted mb-2">SKILL PRIORITIES</div>
+      <div className="relative overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-gray-500 border-b">
+            <tr className="text-left text-xs text-muted border-b">
               <th className="py-1 pr-2">Skill</th><th className="pr-2">Role needs it</th><th className="pr-2">Your state</th>
               <th className="pr-2">Action</th><th>Priority</th>
             </tr>
@@ -29,7 +29,7 @@ export default function SkillPriorities({ rows }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gray-400 mt-2">Hover a row to see why it has this priority.</p>
+      <p className="text-xs text-slate-500 mt-2">Hover a row to see why it has this priority.</p>
     </div>
   );
 }

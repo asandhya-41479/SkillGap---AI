@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AuthShell from '../components/auth/AuthShell';
+import { RegisterBridge } from '../components/auth/BridgeIllustration';
+import { Field, FormError, SubmitButton, InfoStrip } from '../components/auth/FormBits';
 
 function Register() {
   const { register } = useAuth();
@@ -9,6 +12,7 @@ function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [targetRole, setTargetRole] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +20,10 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (password !== confirm) {
+      setError('The two passwords do not match.');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -26,90 +34,55 @@ function Register() {
       if (typeof detail === 'string') {
         setError(detail);
       } else {
-        setError('Registration failed. Please check your input and try again.');
+        setError('Registration failed. Please check your details and try again.');
       }
     } finally {
       setLoading(false);
-
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm"
-      >
-        <h1 className="text-2xl font-bold mb-6 text-center">Create Account</h1>
+    <AuthShell
+      illustration={<RegisterBridge />}
+      headline={<>Every bridge starts <br className="hidden lg:inline" />with one <span className="text-orange-400">plank</span>.</>}
+      subtitle="Create your account, add the skills you already have, and see exactly what stands between you and the role you want."
+      cornerText="Already a member?"
+      cornerLink="Sign in"
+      cornerTo="/login"
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <h2 className="m-0 font-display text-[34px] font-bold tracking-tight">Create your account</h2>
+          <p className="mt-2 text-base text-muted">It takes less than a minute to start.</p>
+        </div>
 
-        {error && (
-          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded text-sm">
-            {error}
-          </div>
-        )}
+        <FormError>{error}</FormError>
 
-        <label className="block mb-3">
-          <span className="text-sm font-medium">Name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="mt-1 w-full border rounded px-3 py-2"
-          />
-        </label>
+        <Field id="name" label="Full name" icon="user" placeholder="Your full name" autoComplete="name"
+          value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} />
+        <Field id="email" label="Email address" icon="mail" type="email" placeholder="you@example.com" autoComplete="email"
+          value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Field id="role" label="Target career role" icon="case" placeholder="e.g. Agentic AI Engineer" hint="Optional"
+          value={targetRole} onChange={(e) => setTargetRole(e.target.value)} maxLength={150} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field id="password" label="Password" type="password" placeholder="8–128 characters" autoComplete="new-password"
+            value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} maxLength={128} />
+          <Field id="confirm" label="Confirm password" type="password" placeholder="Repeat password" autoComplete="new-password"
+            value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} maxLength={128} />
+        </div>
 
-        <label className="block mb-3">
-          <span className="text-sm font-medium">Email</span>
-          <input
-            type="email"
+        <SubmitButton loading={loading} loadingText="Creating account...">Create account</SubmitButton>
 
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="mt-1 w-full border rounded px-3 py-2"
-          />
-        </label>
-
-        <label className="block mb-3">
-          <span className="text-sm font-medium">Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            className="mt-1 w-full border rounded px-3 py-2"
-          />
-        </label>
-
-        <label className="block mb-4">
-          <span className="text-sm font-medium">Target Career Role (optional)</span>
-          <input
-            type="text"
-            value={targetRole}
-            onChange={(e) => setTargetRole(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-2"
-          />
-        </label>
-
-        <button
-          type="submit"
-          disabled={loading}
-
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Creating account...' : 'Register'}
-        </button>
-
-        <p className="mt-4 text-sm text-center">
-          Already have an account?{' '}
-          <Link to="/login" className="text-blue-600 hover:underline">
-            Log in
-          </Link>
-        </p>
+        <InfoStrip
+          title="Your first 3 steps"
+          items={[
+            { value: '1', label: 'Add your skills', color: 'text-brand' },
+            { value: '2', label: 'Paste a job', color: 'text-high' },
+            { value: '3', label: 'See your gaps', color: 'text-verified' },
+          ]}
+        />
       </form>
-    </div>
+    </AuthShell>
   );
 }
 

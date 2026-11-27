@@ -1,49 +1,47 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { STATUS, CLASS_LABEL, IMPORTANCE_LABEL, WEIGHT, statusOf, nameOf, importanceOf } from '../../lib/gap';
 
-const STATUS_ICON = { strong: '✓', partial: '◐', transferable: '↗', gap: '⚠' };
-const STATUS_LABEL = { strong: 'Strong Match', partial: 'Partial Match', transferable: 'Transferable', gap: 'Gap' };
-const PRIORITY_COLOR = { high: '#d92d20', medium: '#b54708', low: '#667085', none: '#667085' };
-
-export default function ResultRow({ result, requirement }) {
+// One requirement card: name, how it matched, weight, "any one of" alternatives and the explanation.
+export default function ResultRow({ result }) {
   const [showDetails, setShowDetails] = useState(false);
+  const st = statusOf(result);
+  const imp = importanceOf(result);
+  const alts = result.job_requirement?.alternatives || [];
 
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 16px', marginBottom: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <strong>{STATUS_ICON[result.classification]} {requirement.skill_name}</strong>
-          <span style={{ marginLeft: 8, fontSize: 13, color: '#667085' }}>
-            {STATUS_LABEL[result.classification]} · {requirement.importance}
-          </span>
-        </div>
-        {result.priority !== 'none' && (
-          <span style={{ fontSize: 12, fontWeight: 600, color: PRIORITY_COLOR[result.priority] }}>
-            {result.priority.toUpperCase()} PRIORITY
-          </span>
-        )}
+    <article className="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="m-0 font-display text-base font-bold text-ink">{nameOf(result)}</h4>
+        <span className={`flex-none rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${STATUS[st].soft}`}>
+          {st === 'strong' ? 'Strong' : `${STATUS[st].label.split(' ')[0]}`}
+        </span>
       </div>
-
-      {requirement.alternatives?.length > 0 && (
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: '#475467' }}>
-          Any one of: {requirement.alternatives.join(', ')}
+      <p className="m-0 text-[13px] font-semibold text-muted">
+        {IMPORTANCE_LABEL[imp] || imp} ×{WEIGHT[imp]} · {CLASS_LABEL[result.classification]}
+      </p>
+      {alts.length > 0 && (
+        <p className="m-0 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[13px] text-slate-700">
+          <span className="font-semibold">Any one of these counts:</span> {alts.join(', ')}
         </p>
       )}
-
-      <p style={{ margin: '8px 0 0', fontSize: 14, color: '#344054' }}>{result.explanation}</p>
-
-      <button
-        onClick={() => setShowDetails(!showDetails)}
-        style={{ fontSize: 12, color: '#667085', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
-      >
-        {showDetails ? 'Hide' : 'Show'} technical details
-
-      </button>
-
+      {result.explanation && <p className="m-0 text-sm leading-relaxed text-slate-700">{result.explanation}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <button type="button" onClick={() => setShowDetails(!showDetails)}
+          className="min-h-9 text-xs font-semibold text-muted hover:text-ink" aria-expanded={showDetails}>
+          {showDetails ? 'Hide' : 'Show'} technical details
+        </button>
+        {st !== 'strong' && (
+          <Link to="/roadmap" className="rounded-lg bg-brand-soft px-3 py-2 text-xs font-bold text-brand-dark hover:bg-blue-200">
+            Plan it in Roadmap →
+          </Link>
+        )}
+      </div>
       {showDetails && (
-        <div style={{ fontSize: 12, color: '#667085', marginTop: 4 }}>
-          Similarity: {result.similarity_score ?? 'n/a'} · Method: {result.match_method} · Source: {result.explanation_source}
-        </div>
+        <p className="m-0 text-xs text-muted">
+          Similarity: {result.similarity_score ?? 'n/a'} · Method: {result.match_method} · Explanation: {result.explanation_source}
+        </p>
       )}
-    </div>
+    </article>
   );
 }

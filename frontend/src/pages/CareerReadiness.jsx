@@ -120,70 +120,68 @@ export default function CareerReadiness() {
   const newerAnalysis = snap && latest && snap.analysis_id !== latest.id;
   const skills = (snap?.breakdown || []).map((b) => b.skill_name);
 
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Link to="/dashboard" className="text-sm text-purple-700 hover:underline">← Dashboard</Link>
-      <h1 className="text-2xl font-bold my-3">Career Readiness</h1>
+  const prevScore = previous ? lastScoreFor(points, previous.id) : null;
+  const banner = (tone, text) => (
+    <p className={`m-0 rounded-xl px-4 py-3 text-sm font-semibold ${tone === 'warn' ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>{text}</p>
+  );
 
-      {!loading && analyses.length === 0 ? (
-        <div className="bg-white border rounded-lg p-4">
-          <p className="text-sm text-gray-600">
-            Readiness is calculated from a completed skill gap analysis.{' '}
-            <Link to="/skill-gap" className="text-purple-700 underline">Run a skill gap analysis</Link> first.
-          </p>
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow m-0">Progress &amp; Readiness</p>
+          <h1 className="page-title mt-1">How ready are you?</h1>
+          <p className="mt-1 text-muted">Your readiness score, what drives it, and how it changed between analyses.</p>
         </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <label className="text-sm">Target role
-              <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="border rounded px-2 py-1 ml-2">
-                {jobIds.map((id) => <option key={id} value={id}>{jobName(id)} (#{id})</option>)}
-              </select>
-            </label>
-            <button onClick={handleCalculate} disabled={!latest || calculating}
-              className="ml-auto bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50">
+        {analyses.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="rd-job" className="sr-only">Target role</label>
+            <select id="rd-job" value={jobId} onChange={(e) => setJobId(e.target.value)}
+              className="h-11 rounded-xl border-[1.5px] border-slate-300 bg-white px-3 text-sm font-semibold">
+              {jobIds.map((id) => <option key={id} value={id}>{jobName(id)} (#{id})</option>)}
+            </select>
+            <button type="button" onClick={handleCalculate} disabled={!latest || calculating} className="btn-primary">
               {calculating ? 'Calculating…' : snap ? 'Recalculate readiness' : 'Calculate readiness'}
             </button>
           </div>
+        )}
+      </div>
 
-          {error && <p className="text-red-600 mb-4">{error}</p>}
-          {loading && <p className="text-gray-500">Loading…</p>}
+      {!loading && analyses.length === 0 ? (
+        <div className="card text-center">
+          <h2 className="m-0 font-display text-xl font-bold">No analysis yet</h2>
+          <p className="mt-2 text-muted">Readiness is calculated from a completed skill gap analysis.</p>
+          <Link to="/skill-gap" className="btn-primary mt-4">Run a skill gap analysis</Link>
+        </div>
+      ) : (
+        <>
+          {error && <p role="alert" className="m-0 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{error}</p>}
+          {loading && <p className="text-muted">Loading…</p>}
 
           {!loading && !snap && latest && (
-            <div className="bg-white border rounded-lg p-4 mb-4 text-sm text-gray-600">
-              No readiness score yet for this role. Click <b>Calculate readiness</b> to create one from
-              analysis #{latest.id}.
+            <div className="card text-center">
+              <h2 className="m-0 font-display text-xl font-bold">No readiness score yet</h2>
+              <p className="mt-2 text-muted">Click <b>Calculate readiness</b> to create one from analysis #{latest.id}.</p>
             </div>
           )}
 
           {!loading && snap && (
             <>
-              {newerAnalysis && (
-                <p className="mb-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                  A newer gap analysis (#{latest.id}) exists. Recalculate to use it.
-                </p>
-              )}
-              {!newerAnalysis && snap.is_stale && (
-                <p className="mb-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
-                  Your progress or evidence changed since this score was calculated. Recalculate to update it.
-                </p>
-              )}
-              {!snap.source_available && (
-                <p className="mb-3 text-sm text-gray-600 bg-gray-50 border rounded p-2">
-                  The analysis behind this score was deleted. The saved score is kept for your history.
-                </p>
-              )}
-              <p className="text-xs text-gray-400 mb-2">
+              {newerAnalysis && banner('warn', `A newer gap analysis (#${latest.id}) exists. Recalculate to use it.`)}
+              {!newerAnalysis && snap.is_stale && banner('warn', 'Your progress or evidence changed since this score was calculated. Recalculate to update it.')}
+              {!snap.source_available && banner('info', 'The analysis behind this score was deleted. The saved score is kept for your history.')}
+              <p className="m-0 -mb-3 text-xs text-muted">
                 Calculated {new Date(`${snap.snapshot_date}T00:00:00`).toLocaleDateString()} from analysis #{snap.analysis_id ?? '—'}
               </p>
 
-              <ScoreSummary snap={snap} />
-              <NextActionCard action={snap.next_action} feedback={snap.ai_feedback}
-                onAddEvidence={(skill) => setPreset({ skill, n: Date.now() })} />
+              <ScoreSummary snap={snap} previousScore={prevScore} />
+              <div className="grid gap-6 lg:grid-cols-2">
+                <ComparisonCard comparison={comparison} hasPrevious={Boolean(previous)}
+                  scoreBefore={prevScore} scoreAfter={latest ? lastScoreFor(points, latest.id) : null} />
+                <NextActionCard action={snap.next_action} feedback={snap.ai_feedback}
+                  onAddEvidence={(skill) => setPreset({ skill, n: Date.now() })} />
+              </div>
               <SkillSections breakdown={snap.breakdown} roadmapItems={roadmapItems} />
-              <ComparisonCard comparison={comparison} hasPrevious={Boolean(previous)}
-                scoreBefore={previous ? lastScoreFor(points, previous.id) : null}
-                scoreAfter={latest ? lastScoreFor(points, latest.id) : null} />
               {skills.length > 0 && (
                 <EvidencePanel skills={skills} evidence={evidence} onChanged={loadJob} preset={preset} />
               )}

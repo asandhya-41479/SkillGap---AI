@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getJobs, getJob, createJob, deleteJob, analyzeJob } from '../api/jobs';
 import JobForm from '../components/jobs/JobForm';
 import JobList from '../components/jobs/JobList';
@@ -23,7 +24,14 @@ export default function JobIntelligence() {
     }
   };
 
-  useEffect(() => { loadJobs(); }, []);
+  useEffect(() => {
+    // Open the newest job straight away so its requirements are visible.
+    getJobs()
+      .then((res) => { if (res.data[0]) handleSelect(res.data[0].id); })
+      .catch(() => {});
+    loadJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSelect = async (id) => {
     setError('');
@@ -50,6 +58,7 @@ export default function JobIntelligence() {
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm('Delete this job description and its requirements?')) return;
     await deleteJob(id);
     if (selectedJob?.id === id) setSelectedJob(null);
     loadJobs();
@@ -70,51 +79,55 @@ export default function JobIntelligence() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading job intelligence...</div>;
+  if (loading) return <p className="text-muted">Loading your jobs…</p>;
+
+  const reqCount = selectedJob?.requirements?.length || 0;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Job Market Intelligence</h1>
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded">{error}</p>}
-
-      <JobForm onSubmit={handleCreate} submitting={submitting} />
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Your Job Descriptions</h2>
-          <JobList jobs={jobs} selectedId={selectedJob?.id} onSelect={handleSelect} onDelete={handleDelete} />
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-2">Analysis</h2>
-          {selectedJob ? (
-            <div className="bg-white p-4 rounded-lg shadow space-y-3">
-              <div>
-                <p className="font-medium">{selectedJob.title || selectedJob.target_role}</p>
-                <p className="text-sm text-gray-500">{selectedJob.target_role} — {selectedJob.status}</p>
-              </div>
-              <button
-                onClick={handleAnalyze}
-                disabled={analyzing}
-                className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 disabled:opacity-50"
-              >
-                {analyzing
-                  ? 'Analyzing...'
-                  : selectedJob.status === 'analyzed' ? 'Re-analyze' : 'Analyze'}
-              </button>
-              {selectedJob.status === 'analyzed' && (
-                <p className="text-xs text-gray-500">
-                  Re-analyze extracts the requirements again from the saved description.
-                  Run Skill Gap Analysis afterwards to see the updated result.
-                </p>
-              )}
-              <RequirementsView requirements={selectedJob.requirements} />
-            </div>
-          ) : (
-            <p className="text-gray-500 italic">Select a job description to view its analysis.</p>
-          )}
-        </div>
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="eyebrow m-0">Job Intelligence</p>
+        <h1 className="page-title mt-1">Understand the job you want</h1>
+        <p className="mt-1 text-muted">Paste a job description and SkillGap AI turns it into a clear list of requirements.</p>
       </div>
+      {error && <p role="alert" className="m-0 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{typeof error === 'string' ? error : 'Something went wrong.'}</p>}
+
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <JobForm onSubmit={handleCreate} submitting={submitting} />
+        <section className="card flex flex-col gap-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="m-0 font-display text-lg font-bold">Your job descriptions</h2>
+            <span className="text-sm text-muted">{jobs.length}</span>
+          </div>
+          <JobList jobs={jobs} selectedId={selectedJob?.id} onSelect={handleSelect} onDelete={handleDelete} />
+        </section>
+      </div>
+
+      {selectedJob ? (
+        <section className="card flex flex-col gap-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow m-0">Extracted requirements</p>
+              <h2 className="m-0 mt-1 font-display text-2xl font-bold">{selectedJob.title || selectedJob.target_role}</h2>
+              <p className="m-0 mt-1 text-sm text-muted">{selectedJob.target_role} · {reqCount} requirement{reqCount === 1 ? '' : 's'}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={handleAnalyze} disabled={analyzing} className={selectedJob.status === 'analyzed' ? 'btn-secondary' : 'btn-primary'}>
+                {analyzing ? 'Analysing…' : selectedJob.status === 'analyzed' ? 'Re-analyse' : 'Analyse job'}
+              </button>
+              {selectedJob.status === 'analyzed' && <Link to="/skill-gap" className="btn-primary">Compare with my skills →</Link>}
+            </div>
+          </div>
+          {selectedJob.status === 'analyzed' && (
+            <p className="m-0 rounded-xl bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700">
+              Re-analyse extracts the requirements again from the saved description. Run Skill Gap afterwards to see the updated result.
+            </p>
+          )}
+          <RequirementsView requirements={selectedJob.requirements} />
+        </section>
+      ) : (
+        jobs.length > 0 && <p className="m-0 text-muted">Select a job description above to see its requirements.</p>
+      )}
     </div>
   );
 }

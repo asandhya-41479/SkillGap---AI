@@ -38,17 +38,17 @@ export default function SkillSections({ breakdown, roadmapItems }) {
 
   return (
     <>
-      <div className="bg-white border rounded-lg p-4 mb-4">
-        <div className="text-sm font-semibold mb-2">High-priority gaps ({high.length})</div>
+      <div className="card">
+        <h2 className="m-0 mb-3 font-display text-lg font-bold">High-priority gaps ({high.length})</h2>
         {high.length === 0 ? (
-          <p className="text-sm text-gray-600">No high-priority gaps remain for this role.</p>
+          <p className="text-sm text-slate-700">No high-priority gaps remain for this role.</p>
         ) : (
           high.map((s) => {
             const ev = evidenceLabel(s.evidence_strength);
             return (
-              <div key={s.skill_name} className="border-l-4 border-red-500 bg-red-50 rounded p-3 mb-2">
+              <div key={s.skill_name} className="mb-2.5 rounded-xl bg-orange-50 p-3.5 ring-1 ring-orange-200">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold text-red-700">HIGH PRIORITY</span>
+                  <span className="rounded-full bg-high px-2 py-0.5 text-xs font-bold text-white">High priority</span>
                   <strong>{s.skill_name}</strong>
                   <Badge cls="bg-white text-gray-700">{IMPORTANCE_TEXT[s.importance] || s.importance} by target role</Badge>
                   <Badge cls="bg-white text-gray-700">Current status: {CLASSIFICATION_TEXT[s.classification] || s.classification}</Badge>
@@ -61,27 +61,27 @@ export default function SkillSections({ breakdown, roadmapItems }) {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-sm font-semibold mb-2">Strong matches ({strong.length})</div>
-          {strong.length === 0 && <p className="text-sm text-gray-600">None yet.</p>}
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="card">
+          <h2 className="m-0 mb-3 font-display text-lg font-bold">Strong matches ({strong.length})</h2>
+          {strong.length === 0 && <p className="text-sm text-slate-700">None yet.</p>}
           {strong.map((s) => {
             const ev = evidenceLabel(s.evidence_strength);
             return (
-              <div key={s.skill_name} className="flex justify-between items-center gap-2 py-1 text-sm">
-                <span>{s.skill_name} <span className="text-gray-400">· {IMPORTANCE_TEXT[s.importance] || s.importance}</span></span>
+              <div key={s.skill_name} className="flex items-center justify-between gap-2 border-b border-line py-2 text-sm last:border-0">
+                <span>{s.skill_name} <span className="text-slate-500">· {IMPORTANCE_TEXT[s.importance] || s.importance}</span></span>
                 <Badge cls={ev.cls}>{ev.text}</Badge>
               </div>
             );
           })}
         </div>
-        <div className="bg-white border rounded-lg p-4">
-          <div className="text-sm font-semibold mb-2">Other remaining gaps ({remaining.length})</div>
-          {remaining.length === 0 && <p className="text-sm text-gray-600">None.</p>}
+        <div className="card">
+          <h2 className="m-0 mb-3 font-display text-lg font-bold">Other remaining gaps ({remaining.length})</h2>
+          {remaining.length === 0 && <p className="text-sm text-slate-700">None.</p>}
           {remaining.map((s) => (
-            <div key={s.skill_name} className="flex justify-between items-center gap-2 py-1 text-sm">
-              <span>{s.skill_name} <span className="text-gray-400">· {IMPORTANCE_TEXT[s.importance] || s.importance}</span></span>
-              <span className="text-gray-600">{CLASSIFICATION_TEXT[s.classification] || s.classification} · {s.priority} priority</span>
+            <div key={s.skill_name} className="flex items-center justify-between gap-2 border-b border-line py-2 text-sm last:border-0">
+              <span>{s.skill_name} <span className="text-slate-500">· {IMPORTANCE_TEXT[s.importance] || s.importance}</span></span>
+              <span className="text-slate-700">{CLASSIFICATION_TEXT[s.classification] || s.classification} · {s.priority} priority</span>
             </div>
           ))}
         </div>

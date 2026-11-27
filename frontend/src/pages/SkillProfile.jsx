@@ -54,6 +54,7 @@ export default function SkillProfile() {
   };
 
   const handleDelete = async (skill) => {
+    if (!window.confirm(`Delete "${skill.skill_name}" from your skills?`)) return;
     const raw = await getSkills();
     const target = raw.data.find((s) => s.skill_name === skill.skill_name);
     await deleteSkill(target.id);
@@ -75,26 +76,44 @@ export default function SkillProfile() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading your skill profile...</div>;
+  // Languages detected from GitHub (shown on the GitHub card).
+  const languages = profile
+    .filter((sk) => sk.sources.includes('github') && sk.category === 'programming_language')
+    .map((sk) => sk.skill_name);
+  const demonstrated = profile.filter((sk) => sk.demonstrated).length;
+
+  if (loading) return <p className="text-muted">Loading your skill profile…</p>;
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Skill Profile</h1>
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded">{error}</p>}
+    <div className="flex min-w-0 flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow m-0">My Skills</p>
+          <h1 className="page-title mt-1">Your skill profile</h1>
+          <p className="mt-1 text-muted">Skills you declare, plus the ones your GitHub repositories prove.</p>
+        </div>
+        <div className="flex gap-3">
+          <div className="rounded-2xl bg-white px-4 py-2.5 text-center shadow-sm"><b className="block font-display text-2xl">{profile.length}</b><span className="text-xs font-semibold text-muted">skills</span></div>
+          <div className="rounded-2xl bg-white px-4 py-2.5 text-center shadow-sm"><b className="block font-display text-2xl text-verified">{demonstrated}</b><span className="text-xs font-semibold text-muted">demonstrated</span></div>
+        </div>
+      </div>
+
+      {error && <p role="alert" className="m-0 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{error}</p>}
       {githubNotice === 'connected' && (
-        <p role="status" className="text-green-700 bg-green-50 p-3 rounded">GitHub connected successfully.</p>
+        <p role="status" className="m-0 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">GitHub connected successfully.</p>
       )}
       {githubNotice === 'error' && (
-        <p role="alert" className="text-red-600 bg-red-50 p-3 rounded">GitHub connection did not complete. Please click Connect GitHub and try again.</p>
+        <p role="alert" className="m-0 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">GitHub connection did not complete. Please click Connect GitHub and try again.</p>
       )}
 
-      <GitHubConnectCard status={githubStatus} onConnect={handleConnect} onAnalyze={handleAnalyze} analyzing={analyzing} />
-
-      <SkillForm
-        onSubmit={editingSkill ? handleUpdate : handleAdd}
-        editingSkill={editingSkill}
-        onCancel={() => setEditingSkill(null)}
-      />
+      <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <SkillForm
+          onSubmit={editingSkill ? handleUpdate : handleAdd}
+          editingSkill={editingSkill}
+          onCancel={() => setEditingSkill(null)}
+        />
+        <GitHubConnectCard status={githubStatus} onConnect={handleConnect} onAnalyze={handleAnalyze} analyzing={analyzing} languages={languages} />
+      </div>
 
       <SkillList profile={profile} onEdit={setEditingSkill} onDelete={handleDelete} />
     </div>

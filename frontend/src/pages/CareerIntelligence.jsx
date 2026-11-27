@@ -122,94 +122,117 @@ export default function CareerIntelligence() {
   const topIds = new Set((plan?.top_actions || []).map((a) => a.id));
   const otherActions = (plan?.actions || []).filter((a) => !topIds.has(a.id));
 
+  // Download the ranked action list as a plain-text checklist (made in the browser, no server call).
+  const exportChecklist = () => {
+    if (!plan) return;
+    const line = (a, i) => `[${a.status === 'COMPLETED' ? 'x' : a.status === 'SKIPPED' ? '-' : ' '}] ${i + 1}. ${a.title} (${String(a.priority).toLowerCase()} priority)\n    Why: ${a.reason}`;
+    const text = [
+      'SkillGap AI - Career action checklist',
+      `Target role: ${plan.target_role}`,
+      `Career status: ${plan.career_status.replace(/_/g, ' ').toLowerCase()}`,
+      `Readiness: ${plan.readiness_score === null ? 'not enough data' : `${Math.round(plan.readiness_score)}/100`}`,
+      `Exported: ${new Date().toLocaleString()}`,
+      '',
+      'TOP ACTIONS',
+      ...plan.top_actions.map(line),
+      '',
+      'ALL ACTIONS',
+      ...plan.actions.map(line),
+    ].join('\n');
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `skillgap-career-checklist-${plan.target_role.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Link to="/dashboard" className="text-sm text-purple-700 hover:underline">← Dashboard</Link>
-      <h1 className="text-2xl font-bold my-3">Career Intelligence</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        What to do next to become more competitive for your target role, and why.
-      </p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow m-0">Career Intelligence</p>
+          <h1 className="page-title mt-1">Your career action plan</h1>
+          <p className="mt-1 text-muted">What to do next to become more competitive for your target role, and why.</p>
+        </div>
+        {analyses.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="ci-job" className="sr-only">Target role</label>
+            <select id="ci-job" value={jobId} onChange={(e) => setJobId(e.target.value)}
+              className="h-11 rounded-xl border-[1.5px] border-slate-300 bg-white px-3 text-sm font-semibold">
+              {jobIds.map((id) => <option key={id} value={id}>{jobName(id)} (#{id})</option>)}
+            </select>
+            {plan && <button type="button" onClick={exportChecklist} className="btn-secondary">Export checklist</button>}
+          </div>
+        )}
+      </div>
 
       {!loading && analyses.length === 0 ? (
-        <div className="bg-white border rounded-lg p-4 mb-4">
-          <p className="text-sm text-gray-600">
-            Your career plan is built from a completed skill gap analysis.{' '}
-            <Link to="/skill-gap" className="text-purple-700 underline">Run a skill gap analysis</Link> first.
-          </p>
+        <div className="card text-center">
+          <h2 className="m-0 font-display text-xl font-bold">No analysis yet</h2>
+          <p className="mt-2 text-muted">Your career plan is built from a completed skill gap analysis.</p>
+          <Link to="/skill-gap" className="btn-primary mt-4">Run a skill gap analysis</Link>
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <label className="text-sm">Target role
-              <select value={jobId} onChange={(e) => setJobId(e.target.value)} className="border rounded px-2 py-1 ml-2">
-                {jobIds.map((id) => <option key={id} value={id}>{jobName(id)} (#{id})</option>)}
-              </select>
-            </label>
-            {plan && (
-              <span className="text-xs text-gray-400 ml-auto">
-                Plan built {new Date(plan.generated_at).toLocaleString()}
-              </span>
-            )}
-          </div>
-
-          {error && <p className="text-red-600 mb-4">{error}</p>}
-          {loading && <p className="text-gray-500">Building your career plan…</p>}
+          {error && <p role="alert" className="m-0 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{error}</p>}
+          {loading && <p className="text-muted">Building your career plan…</p>}
 
           {!loading && plan && (
             <>
               {plan.stale && (
-                <div className="mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
                   <span>Your progress, evidence or analysis changed since this plan was built.</span>
-                  <button onClick={refreshPlan} disabled={refreshing}
-                    className="ml-auto bg-purple-600 text-white px-3 py-1 rounded text-sm disabled:opacity-50">
+                  <button type="button" onClick={refreshPlan} disabled={refreshing} className="btn-primary ml-auto min-h-9">
                     {refreshing ? 'Updating…' : 'Refresh plan'}
                   </button>
                 </div>
               )}
 
               {notice && (
-                <div className="mb-4 text-sm text-green-800 bg-green-50 border border-green-200 rounded p-2 flex items-start gap-2">
+                <div role="status" className="flex items-start gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
                   <span className="flex-1">{notice}{refreshing ? ' Updating your plan…' : ''}</span>
-                  <button onClick={() => setNotice('')} className="text-green-700" aria-label="Dismiss">✕</button>
+                  <button type="button" onClick={() => setNotice('')} className="h-7 w-7 rounded-lg hover:bg-green-100" aria-label="Dismiss">✕</button>
                 </div>
               )}
 
               <StatusCard plan={plan} />
 
-              {plan.next_milestone && (
-                <div className="bg-white border-2 border-purple-200 rounded-lg p-4 mb-4">
-                  <div className="text-xs font-semibold tracking-wide text-purple-700">NEXT MILESTONE</div>
-                  <div className="text-lg font-semibold mt-1">{plan.next_milestone.title}</div>
-                  <p className="text-sm text-gray-600 mt-1">{plan.next_milestone.reason}</p>
-                </div>
-              )}
-
-              <div className="bg-white border rounded-lg p-4 mb-4">
-                <div className="text-xs font-semibold tracking-wide text-gray-500 mb-2">
-                  YOUR NEXT {plan.top_actions.length} ACTIONS
-                </div>
-                {plan.top_actions.length ? (
-                  <div className="space-y-2">
-                    {plan.top_actions.map((a, i) => <ActionCard key={a.id} action={a} rank={i + 1} onUpdate={onUpdateAction} />)}
+              <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+                <section className="card flex flex-col gap-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h2 className="m-0 font-display text-lg font-bold">Your next {plan.top_actions.length} actions</h2>
+                    <span className="text-xs text-muted">Plan built {new Date(plan.generated_at).toLocaleString()}</span>
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-600">No open actions. Refresh the plan after your next analysis.</p>
-                )}
-                {otherActions.length > 0 && (
-                  <details className="mt-3">
-                    <summary className="text-sm text-purple-700 cursor-pointer">
-                      All actions ({plan.actions.length}, including completed)
-                    </summary>
-                    <div className="space-y-2 mt-2">
-                      {otherActions.map((a) => <ActionCard key={a.id} action={a} onUpdate={onUpdateAction} />)}
+                  {plan.top_actions.length ? (
+                    <div className="flex flex-col gap-2.5">
+                      {plan.top_actions.map((a, i) => <ActionCard key={a.id} action={a} rank={i + 1} onUpdate={onUpdateAction} />)}
                     </div>
-                  </details>
+                  ) : (
+                    <p className="m-0 text-sm text-slate-700">No open actions. Refresh the plan after your next analysis.</p>
+                  )}
+                  {otherActions.length > 0 && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-sm font-semibold text-brand">All actions ({plan.actions.length}, including completed)</summary>
+                      <div className="mt-2 flex flex-col gap-2.5">
+                        {otherActions.map((a) => <ActionCard key={a.id} action={a} onUpdate={onUpdateAction} />)}
+                      </div>
+                    </details>
+                  )}
+                </section>
+
+                {plan.next_milestone && (
+                  <section className="card flex flex-col gap-2 self-start bg-navy text-white">
+                    <span className="self-start rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-ink">Next milestone</span>
+                    <h2 className="m-0 mt-1 font-display text-xl font-bold leading-snug">{plan.next_milestone.title}</h2>
+                    <p className="m-0 text-sm leading-relaxed text-blue-100">{plan.next_milestone.reason}</p>
+                  </section>
                 )}
               </div>
 
+              <ProjectCards projects={plan.projects} />
               <SkillPriorities rows={plan.skill_priorities} />
               <EvidenceGaps gaps={plan.evidence_gaps} />
-              <ProjectCards projects={plan.projects} />
               <InterviewPrep prep={prep} onToggle={onTogglePrep} onRefresh={refreshPrep} refreshing={prepRefreshing} />
             </>
           )}

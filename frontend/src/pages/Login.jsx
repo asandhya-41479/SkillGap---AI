@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AuthShell from '../components/auth/AuthShell';
+import { LoginBridge } from '../components/auth/BridgeIllustration';
+import { Field, FormError, SubmitButton, InfoStrip } from '../components/auth/FormBits';
 
 function Login() {
   const { login } = useAuth();
@@ -8,6 +11,7 @@ function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,74 +21,65 @@ function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email, password, remember);
       navigate('/dashboard');
     } catch (err) {
       const detail = err.response?.data?.detail;
       if (typeof detail === 'string') {
         setError(detail);
       } else {
-        setError('Login failed. Please try again.');
+        setError('Sign-in failed. Please try again.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm"
-      >
-        <h1 className="text-2xl font-bold mb-6 text-center">Log In</h1>
+    <AuthShell
+      illustration={<LoginBridge />}
+      headline={<>Build the <span className="text-orange-400">bridge</span> to <br className="hidden lg:inline" />your next role.</>}
+      subtitle="Every skill you prove adds a plank. SkillGap AI shows you which ones are missing and how to put them in place."
+      cornerText="New here?"
+      cornerLink="Create account"
+      cornerTo="/register"
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate={false}>
+        <div>
+          <h2 className="m-0 font-display text-[34px] font-bold tracking-tight">Welcome back</h2>
+          <p className="mt-2 text-base text-muted">Your next plank is waiting.</p>
+        </div>
 
-        {error && (
-          <div className="mb-4 p-2 bg-red-100 text-red-700 rounded text-sm">
-            {error}
-          </div>
-        )}
+        <FormError>{error}</FormError>
 
-        <label className="block mb-3">
-          <span className="text-sm font-medium">Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="mt-1 w-full border rounded px-3 py-2"
-          />
+        <Field id="email" label="Email address" icon="mail" type="email" placeholder="you@example.com"
+          autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Field id="password" label="Password" icon="lock" type="password" placeholder="Enter your password"
+          autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 self-start text-sm text-slate-700">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+            className="h-[18px] w-[18px] accent-brand" />
+          Remember me on this device
         </label>
 
-        <label className="block mb-4">
-          <span className="text-sm font-medium">Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+        <SubmitButton loading={loading} loadingText="Signing in...">Sign in</SubmitButton>
 
-            required
-            className="mt-1 w-full border rounded px-3 py-2"
-          />
-        </label>
+        <div className="flex gap-2.5 rounded-xl bg-slate-100 px-3.5 py-3 text-[13px] leading-relaxed text-muted">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 flex-none" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" /></svg>
+          <span>For your security, sign-in is paused for 15 minutes after five unsuccessful attempts.</span>
+        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Logging in...' : 'Log In'}
-        </button>
-
-        <p className="mt-4 text-sm text-center">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-blue-600 hover:underline">
-            Register
-          </Link>
-        </p>
+        <InfoStrip
+          title="What you'll see inside"
+          items={[
+            { value: '%', label: 'Job alignment', color: 'text-brand' },
+            { value: 'Gaps', label: 'Ranked by priority', color: 'text-high' },
+            { value: '✓', label: 'GitHub-verified skills', color: 'text-verified' },
+          ]}
+        />
       </form>
-    </div>
+    </AuthShell>
   );
 }
 

@@ -23,38 +23,38 @@ export default function NextActionCard({ action, feedback, onAddEvidence }) {
   const reasons = (action.reason_codes || []).map((c) => REASON_TEXT[c]).filter(Boolean);
 
   return (
-    <div className="bg-white border-2 border-purple-200 rounded-lg p-4 mb-4">
-      <div className="text-xs font-semibold tracking-wide text-purple-700">NEXT BEST ACTION</div>
-      <div className="text-lg font-semibold mt-1">{action.title}</div>
+    <div className="card flex flex-col gap-1 bg-navy text-white">
+      <span className="self-start rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-ink">Next best action</span>
+      <div className="mt-2 font-display text-xl font-bold leading-snug">{action.title}</div>
       {reasons.length > 0 && (
-        <ul className="mt-1 text-sm text-gray-600 list-disc ml-5">
+        <ul className="mt-1 text-sm text-blue-100 list-disc ml-5">
           {reasons.map((r) => <li key={r}>{r}</li>)}
         </ul>
       )}
 
       <div className="mt-3">
         {action.kind === 'roadmap_item' && action.item_id && (
-          <Link to="/roadmap" className="inline-block bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm">
+          <Link to="/roadmap" className="btn-primary bg-white text-ink hover:bg-blue-50">
             Open roadmap
           </Link>
         )}
         {action.kind === 'add_evidence' && (
           <button onClick={() => onAddEvidence(action.skill_name)}
-            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm">
+            className="btn-primary bg-white text-ink hover:bg-blue-50">
             Add evidence for {action.skill_name}
           </button>
         )}
         {action.kind === 'rerun_analysis' && (
-          <Link to="/skill-gap" className="inline-block bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm">
+          <Link to="/skill-gap" className="btn-primary bg-white text-ink hover:bg-blue-50">
             Re-run skill gap analysis
           </Link>
         )}
       </div>
 
       {action.alternatives?.length > 0 && (
-        <p className="mt-2 text-xs text-gray-500">Also possible: {action.alternatives.join(' · ')}</p>
+        <p className="mt-2 text-xs text-blue-200">Also possible: {action.alternatives.join(' · ')}</p>
       )}
-      {feedback && <p className="mt-3 text-sm text-gray-700 border-t pt-3">{feedback}</p>}
+      {feedback && <p className="mt-3 border-t border-white/15 pt-3 text-sm text-blue-100">{feedback}</p>}
     </div>
   );
 }
