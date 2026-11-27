@@ -109,10 +109,13 @@ def request_reset(db: Session, email: str) -> None:
         return
     user = db.query(User).filter(User.email == email.strip()).first()
     if user is None:
+        logger.info("Password reset requested for an email with no account (no email sent).")
         return
     token = create_reset_token(db, user)
     subject, body, text = build_email(user.name, reset_link(token))
-    if not send_email(user.email, subject, body, text):
+    if send_email(user.email, subject, body, text):
+        logger.info("Password reset email handed to Brevo for user id %s.", user.id)
+    else:
         logger.warning("Password reset email for user id %s was not sent.", user.id)
 
 

@@ -43,4 +43,5 @@ def send_email(to_email: str, subject: str, html: str, text: str) -> bool:
         # Brevo explains refusals in the body (e.g. sender not verified); it never contains our key.
         logger.error("Email not sent: Brevo answered HTTP %s: %s", r.status_code, r.text[:300])
         return False
+    logger.info("Email accepted by Brevo (HTTP %s): %s", r.status_code, r.text[:120])
     return True
