@@ -42,6 +42,8 @@ TAGS = [
 SUMMARIES = {
     ("POST", "/auth/register"): "Create an account",
     ("POST", "/auth/login"): "Log in and get an access token (5 wrong tries = 15-minute wait)",
+    ("POST", "/auth/forgot-password"): "Email a single-use password reset link (same answer for unknown emails)",
+    ("POST", "/auth/reset-password"): "Set a new password with a valid reset link token",
 
     ("GET", "/users/me"): "Get my account",
     ("PUT", "/users/me"): "Update my name or target role",

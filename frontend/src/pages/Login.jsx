@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AuthShell from '../components/auth/AuthShell';
 import { LoginBridge } from '../components/auth/BridgeIllustration';
@@ -57,11 +57,14 @@ function Login() {
         <Field id="password" label="Password" icon="lock" type="password" placeholder="Enter your password"
           autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
 
-        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 self-start text-sm text-slate-700">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-slate-700">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
             className="h-[18px] w-[18px] accent-brand" />
           Remember me on this device
         </label>
+        <Link to="/forgot-password" className="text-sm font-semibold text-brand hover:text-brand-dark hover:underline">Forgot password?</Link>
+        </div>
 
         <SubmitButton loading={loading} loadingText="Signing in...">Sign in</SubmitButton>
 

@@ -15,6 +15,7 @@ from app.models import (  # noqa: F401
     career,            # Module 7: plans, actions, interview prep, opportunity matches
     github_connection,
     job,
+    password_reset,    # forgot-password links (hashed, single use)
     readiness,         # Module 6: evidence, readiness snapshots
     roadmap,           # Module 5: roadmaps and items
     skill,

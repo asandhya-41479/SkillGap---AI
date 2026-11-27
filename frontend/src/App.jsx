@@ -11,6 +11,8 @@ import Roadmap from './pages/Roadmap';
 import CareerReadiness from './pages/CareerReadiness';
 import CareerIntelligence from './pages/CareerIntelligence';
 import Settings from './pages/Settings';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -18,6 +20,8 @@ function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Every logged-in page shares the sidebar layout. */}
       <Route
