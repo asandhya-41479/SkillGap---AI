@@ -83,6 +83,11 @@ def test_unknown_email_gets_the_same_answer_and_no_email(client):
     assert [m["to"] for m in client.sent] == [EMAIL]
 
 
+def test_email_letter_case_does_not_matter(client):
+    assert forgot(client, EMAIL.upper()).status_code == 202
+    assert [m["to"] for m in client.sent] == [EMAIL]
+
+
 def test_only_a_hash_of_the_token_is_stored(client):
     forgot(client)
     token = token_from(client.sent[0])

@@ -16,6 +16,7 @@ import time
 from collections import deque
 from datetime import timedelta
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -107,7 +108,10 @@ def request_reset(db: Session, email: str) -> None:
     if not reset_request_limiter.allow(email):
         logger.info("Password reset request limited.")
         return
-    user = db.query(User).filter(User.email == email.strip()).first()
+    wanted = email.strip()
+    # Exact match first; otherwise ignore letter case ("Name@Gmail.com" and "name@gmail.com" are one inbox).
+    user = db.query(User).filter(User.email == wanted).first() or \
+        db.query(User).filter(func.lower(User.email) == wanted.lower()).first()
     if user is None:
         logger.info("Password reset requested for an email with no account (no email sent).")
         return
